@@ -109,19 +109,26 @@ class AuthService {
             
             this.token = data.token;
             this.currentUser = formattedUser;
+
+            // Save to localStorage first (which doesn't throw constraints errors)
             localStorage.setItem('auth_token', data.token);
             localStorage.setItem('current_user', JSON.stringify(formattedUser));
-
-            // Store user data in IndexedDB for offline access
-            await dbService.addUser(formattedUser);
 
             // Set up axios interceptor for authentication
             axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
             
+            // Store user data in IndexedDB for offline access (this might throw constraint errors)
+            try {
+                await dbService.addUser(formattedUser);
+            } catch (dbError: any) {
+                console.warn('IndexedDB operation failed, but authentication succeeded:', dbError.message);
+                // Authentication still succeeded even if local storage failed
+            }
+            
             console.log('Auth setup completed successfully');
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error handling auth response:', error);
-            throw new Error('Failed to process authentication response');
+            throw new Error(`Failed to process authentication response: ${error.message}`);
         }
     }
 
