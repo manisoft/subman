@@ -175,24 +175,48 @@ export const SubscriptionList: React.FC = () => {
     }
 
     if (error) {
+        const isNetworkError = 
+            error.includes('Network Error') || 
+            error.includes('timeout') || 
+            error.includes('ERR_NETWORK') ||
+            error.includes('ERR_CONNECTION_TIMED_OUT');
+            
         return (
             <div className={styles.errorContainer}>
-                <div>Error loading subscriptions: {error}</div>
+                <div>
+                    {isNetworkError ? (
+                        <>
+                            <h3>Network Connection Error</h3>
+                            <p>The app cannot connect to the server. This could be due to:</p>
+                            <ul style={{ textAlign: 'left' }}>
+                                <li>Your internet connection is offline</li>
+                                <li>The server is temporarily unavailable</li>
+                                <li>A firewall is blocking the connection</li>
+                            </ul>
+                            <p>The app will run in offline mode using locally stored data.</p>
+                        </>
+                    ) : (
+                        <>Error loading subscriptions: {error}</>
+                    )}
+                </div>
                 <div className={styles.errorActions}>
+                    {!isNetworkError && (
+                        <Button 
+                            appearance="primary" 
+                            onClick={() => {
+                                // Force logout and redirect to login page
+                                authService.logout();
+                                window.location.href = '/login';
+                            }}
+                        >
+                            Re-authenticate
+                        </Button>
+                    )}
                     <Button 
-                        appearance="primary" 
-                        onClick={() => {
-                            // Force logout and redirect to login page
-                            authService.logout();
-                            window.location.href = '/login';
-                        }}
-                    >
-                        Re-authenticate
-                    </Button>
-                    <Button 
+                        appearance={isNetworkError ? "primary" : "secondary"}
                         onClick={() => window.location.reload()}
                     >
-                        Retry
+                        Retry Connection
                     </Button>
                 </div>
             </div>

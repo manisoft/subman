@@ -2,6 +2,11 @@ import axios from 'axios';
 import { dbService } from './db.service';
 import { User } from '../types/models';
 
+// Create custom axios instance with timeout
+const authClient = axios.create({
+    timeout: 10000 // 10 second timeout
+});
+
 // Get the current hostname
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
@@ -55,13 +60,39 @@ class AuthService {
     async login(credentials: LoginCredentials): Promise<User> {
         try {
             // Always try API login first
-            const response = await axios.post<AuthResponse>(
-                `${API_BASE_URL}/auth`,
-                { ...credentials, type: 'login' }
-            );
-            await this.handleAuthResponse(response.data);
-            return response.data.user;
+            try {
+                console.log('Attempting API login...');
+                const response = await authClient.post<AuthResponse>(
+                    `${API_BASE_URL}/auth`,
+                    { ...credentials, type: 'login' }
+                );
+                await this.handleAuthResponse(response.data);
+                return response.data.user;
+            } catch (apiError: any) {
+                console.error('API login error:', apiError.message);
+                
+                // Handle network errors specifically
+                if (apiError.code === 'ERR_NETWORK' || 
+                    apiError.code === 'ECONNABORTED' || 
+                    apiError.message.includes('timeout') || 
+                    !navigator.onLine) {
+                    
+                    console.log('Network error detected, attempting offline login');
+                    const user = await this.offlineLogin(credentials.email);
+                    if (user) {
+                        this.currentUser = user;
+                        this.token = `offline-token-${Date.now()}`;
+                        localStorage.setItem('auth_token', this.token);
+                        localStorage.setItem('current_user', JSON.stringify(user));
+                        return user;
+                    }
+                }
+                
+                throw apiError;
+            }
         } catch (error) {
+            console.error('Authentication failed:', error);
+            
             // If offline, try to authenticate against IndexedDB
             if (!navigator.onLine) {
                 const user = await this.offlineLogin(credentials.email);
@@ -80,12 +111,25 @@ class AuthService {
     }
 
     async register(data: RegisterData): Promise<User> {
-        const response = await axios.post<AuthResponse>(
-            `${API_BASE_URL}/auth`,
-            { ...data, type: 'register' }
-        );
-        await this.handleAuthResponse(response.data);
-        return response.data.user;
+        try {
+            const response = await authClient.post<AuthResponse>(
+                `${API_BASE_URL}/auth`,
+                { ...data, type: 'register' }
+            );
+            await this.handleAuthResponse(response.data);
+            return response.data.user;
+        } catch (error: any) {
+            console.error('Registration failed:', error.message);
+            
+            // Provide more descriptive error messages
+            if (error.code === 'ERR_NETWORK' || error.message.includes('Network Error')) {
+                throw new Error('Cannot connect to the server. Please check your internet connection.');
+            } else if (error.response && error.response.data && error.response.data.message) {
+                throw new Error(error.response.data.message);
+            }
+            
+            throw error;
+        }
     }
 
     private async handleAuthResponse(data: AuthResponse) {
