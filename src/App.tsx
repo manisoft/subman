@@ -1,0 +1,112 @@
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { FluentProvider, webLightTheme, makeStyles, Button } from '@fluentui/react-components';
+import { ServiceWorkerRegistration } from './components/ServiceWorkerRegistration';
+import { SubscriptionList } from './components/SubscriptionList';
+import { LoginPage } from './components/LoginPage';
+import { RegisterPage } from './components/RegisterPage';
+import { useNetworkStatus } from './hooks/useNetworkStatus';
+import { AuthProvider } from './context/AuthContext';
+import { useAuthContext } from './context/AuthContext';
+import { ErrorBoundary } from './components/ErrorBoundary';
+
+const useStyles = makeStyles({
+  app: {
+    minHeight: '100vh',
+    width: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  header: {
+    padding: '1rem',
+    backgroundColor: '#f0f0f0',
+    borderBottom: '1px solid #e0e0e0',
+  },
+  headerContent: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  main: {
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+  }
+});
+
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useAuthContext();
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
+};
+
+const PublicRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { isAuthenticated } = useAuthContext();
+  return !isAuthenticated ? <>{children}</> : <Navigate to="/" replace />;
+};
+
+function AppContent() {
+  const styles = useStyles();
+  const { isOnline } = useNetworkStatus();
+  const { user, logout } = useAuthContext();
+
+  return (
+    <div className={styles.app}>
+      {user && (
+        <header className={styles.header}>
+          <div className={styles.headerContent}>
+            <h1>SubMan</h1>
+            <Button appearance="subtle" onClick={logout}>Logout</Button>
+          </div>
+          {!isOnline && (
+            <div className="offline-indicator">
+              Offline Mode - Changes will sync when connection is restored
+            </div>
+          )}
+        </header>
+      )}
+      <main className={styles.main}>
+        <Routes>
+          <Route path="/login" element={
+            <PublicRoute>
+              <LoginPage />
+            </PublicRoute>
+          } />
+          <Route path="/register" element={
+            <PublicRoute>
+              <RegisterPage />
+            </PublicRoute>
+          } />
+          <Route path="/" element={
+            <ProtectedRoute>
+              <SubscriptionList />
+            </ProtectedRoute>
+          } />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </main>
+    </div>
+  );
+}
+
+function App() {
+  return (
+    <ErrorBoundary>
+      <FluentProvider
+        theme={webLightTheme}
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          flexDirection: 'column'
+        }}
+      >
+        <ServiceWorkerRegistration />
+        <Router>
+          <AuthProvider>
+            <AppContent />
+          </AuthProvider>
+        </Router>
+      </FluentProvider>
+    </ErrorBoundary>
+  );
+}
+
+export default App;
