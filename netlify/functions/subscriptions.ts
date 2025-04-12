@@ -60,38 +60,74 @@ export const handler: Handler = async (event) => {
             }
 
             case 'POST': {
-                if (!event.body) {
-                    return { statusCode: 400, body: JSON.stringify({ error: 'Missing request body' }) };
+                try {
+                    if (!event.body) {
+                        return { 
+                            statusCode: 400, 
+                            headers,
+                            body: JSON.stringify({ error: 'Missing request body' }) 
+                        };
+                    }
+
+                    // Parse the request body
+                    const subscription = JSON.parse(event.body);
+                    console.log('Received subscription data:', JSON.stringify(subscription));
+
+                    // Map frontend model to database columns
+                    const price = subscription.cost || subscription.price || 0;
+                    const billingCycle = subscription.billingCycle || subscription.billing_cycle || 'MONTHLY';
+                    const nextBillingDate = subscription.nextBillingDate || subscription.next_billing_date || new Date().toISOString();
+                    const categoryId = subscription.categoryId || subscription.category_id || 1;
+                    
+                    // Log mapped values
+                    console.log('Mapped values:', {
+                        price,
+                        billingCycle,
+                        nextBillingDate,
+                        categoryId
+                    });
+
+                    // Insert into database
+                    const [result] = await connection.execute(
+                        `INSERT INTO subscriptions (
+                            id, user_id, name, price, billing_cycle, category_id,
+                            description, next_billing_date, status
+                        ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?)`,
+                        [
+                            user.id,
+                            subscription.name,
+                            price,
+                            billingCycle,
+                            categoryId,
+                            subscription.description || '',
+                            nextBillingDate,
+                            subscription.status || 'ACTIVE'
+                        ]
+                    );
+
+                    // Return the created subscription with its new ID
+                    return {
+                        statusCode: 201,
+                        headers,
+                        body: JSON.stringify({
+                            message: 'Subscription created successfully',
+                            subscription: { 
+                                ...subscription, 
+                                id: (result as any).insertId || result.insertId 
+                            }
+                        })
+                    };
+                } catch (dbError: any) {
+                    console.error('Database error adding subscription:', dbError);
+                    return {
+                        statusCode: 500,
+                        headers,
+                        body: JSON.stringify({ 
+                            error: 'Database error when adding subscription',
+                            details: dbError.message
+                        })
+                    };
                 }
-
-                const subscription = JSON.parse(event.body);
-                const [result] = await connection.execute(
-                    `INSERT INTO subscriptions (
-            id, user_id, name, price, billing_cycle, category,
-            description, next_billing_date, color, logo, website, notes
-          ) VALUES (UUID(), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-                    [
-                        user.id,
-                        subscription.name,
-                        subscription.price,
-                        subscription.billing_cycle,
-                        subscription.category,
-                        subscription.description,
-                        subscription.next_billing_date,
-                        subscription.color,
-                        subscription.logo,
-                        subscription.website,
-                        subscription.notes
-                    ]
-                );
-
-                return {
-                    statusCode: 201,
-                    body: JSON.stringify({
-                        message: 'Subscription created successfully',
-                        subscription: { ...subscription, id: (result as any).insertId }
-                    })
-                };
             }
 
             case 'PUT': {

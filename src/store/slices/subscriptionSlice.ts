@@ -74,13 +74,43 @@ export const addSubscription = createAsyncThunk(
     'subscriptions/addSubscription',
     async (subscription: Omit<Subscription, 'id'>) => {
         try {
-            const response = await axios.post(`${API_BASE_URL}/subscriptions`, subscription, {
+            // Format the data to match what the backend expects
+            const apiData = {
+                name: subscription.name,
+                cost: subscription.cost,
+                billingCycle: subscription.billingCycle,
+                startDate: subscription.startDate instanceof Date 
+                    ? subscription.startDate.toISOString() 
+                    : subscription.startDate,
+                endDate: subscription.endDate instanceof Date 
+                    ? subscription.endDate.toISOString() 
+                    : subscription.endDate,
+                status: subscription.status,
+                categoryId: subscription.categoryId,
+                userId: subscription.userId,
+                nextBillingDate: subscription.nextBillingDate instanceof Date 
+                    ? subscription.nextBillingDate.toISOString() 
+                    : subscription.nextBillingDate,
+                description: subscription.description || ''
+            };
+            
+            console.log('Sending subscription data:', apiData);
+            
+            const response = await axios.post(`${API_BASE_URL}/subscriptions`, apiData, {
                 headers: getAuthHeader()
             });
-            const newSubscription = response.data;
+            
+            console.log('Subscription response:', response.data);
+            
+            const newSubscription = {
+                ...subscription,
+                id: response.data.subscription.id
+            };
+            
             await dbService.addSubscription(newSubscription);
             return newSubscription;
         } catch (error) {
+            console.error('Failed to add subscription:', error);
             // If offline, store in IndexedDB only
             if (!navigator.onLine) {
                 const tempId = Date.now(); // Temporary ID for offline

@@ -33,8 +33,13 @@ export default defineConfig({
         scope: '/',
         orientation: 'portrait'
       },
+      strategies: 'generateSW',
+      filename: 'service-worker.js',
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+        clientsClaim: true,
+        skipWaiting: true,
+        cleanupOutdatedCaches: true,
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/api\.*/i,
