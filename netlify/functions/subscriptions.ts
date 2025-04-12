@@ -3,11 +3,17 @@ import mysql from 'mysql2/promise';
 import jwt from 'jsonwebtoken';
 
 const dbConfig = {
-    host: process.env.VITE_DB_HOST,
-    user: process.env.VITE_DB_USER,
-    password: process.env.VITE_DB_PASSWORD,
-    database: process.env.VITE_DB_NAME,
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
 };
+
+console.log('Subscriptions DB Config:', { 
+    host: dbConfig.host, 
+    user: dbConfig.user, 
+    database: dbConfig.database 
+});
 
 const verifyToken = (authHeader: string | undefined) => {
     if (!authHeader?.startsWith('Bearer ')) {
@@ -18,8 +24,27 @@ const verifyToken = (authHeader: string | undefined) => {
 };
 
 export const handler: Handler = async (event) => {
+    const headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+    };
+    
+    if (event.httpMethod === 'OPTIONS') {
+        return {
+            statusCode: 200,
+            headers,
+            body: ''
+        };
+    }
+    
+    console.log('Subscription request received:', event.httpMethod, event.path);
+    console.log('Auth header exists:', !!event.headers.authorization);
+    
     try {
         const user = verifyToken(event.headers.authorization) as { id: string };
+        console.log('User authenticated:', user.id);
+        
         const connection = await mysql.createConnection(dbConfig);
 
         switch (event.httpMethod) {
