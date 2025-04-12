@@ -5,7 +5,6 @@ import { User } from '../types/models';
 // Use the configured API URL with a fallback
 // This will be /api when deployed to Netlify (due to the redirects in netlify.toml)
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
-const IS_PRODUCTION = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
 interface AuthResponse {
     user: User;
