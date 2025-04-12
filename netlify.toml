@@ -3,9 +3,22 @@
   publish = "dist"
   functions = "netlify/functions"
 
+# Redirect /api/* paths to the corresponding Netlify functions
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
+  status = 200
+
+# Also add a direct .netlify/functions redirect for when the app uses the path directly
+[[redirects]]
+  from = "/.netlify/functions/*"
+  to = "/.netlify/functions/:splat"
+  status = 200
+
+# SPA fallback
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
   status = 200
 
 [[headers]]

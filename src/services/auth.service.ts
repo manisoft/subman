@@ -5,11 +5,11 @@ import { User } from '../types/models';
 // Get the current hostname
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
-// For production (Netlify), use the relative path /api which gets redirected to /.netlify/functions
+// For production (Netlify), use the direct path to functions
 // For development, use localhost
 const API_BASE_URL = isLocalhost 
   ? 'http://localhost:3000/api' 
-  : '/api';
+  : '/.netlify/functions';
 
 console.log('Using API URL:', API_BASE_URL);
 

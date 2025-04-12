@@ -2,7 +2,8 @@ import axios from 'axios';
 import { dbService } from './db.service';
 import { Subscription } from '../types/models';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// Updated API URL with explicit Netlify functions path
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/.netlify/functions';
 
 type EntityType = Subscription;
 
@@ -10,7 +11,7 @@ interface SyncOperation {
     type: 'CREATE' | 'UPDATE' | 'DELETE';
     entity: 'subscription' | 'payment';
     data: EntityType | null;
-    id?: number;
+    id?: string | number;
 }
 
 interface SyncState {
@@ -108,7 +109,7 @@ class SyncService {
         type: 'CREATE' | 'UPDATE' | 'DELETE',
         entity: 'subscription' | 'payment',
         data: EntityType | null,
-        id?: number
+        id?: string | number
     ) {
         this.syncState.pendingOperations.push({ type, entity, data, id });
         this.saveSyncState();

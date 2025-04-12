@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store/store';
 import { fetchUserSubscriptions } from '../store/slices/subscriptionSlice';
-import { Subscription } from '../types/models';
 import { authService } from '../services/auth.service';
 
 export const useDashboardData = () => {

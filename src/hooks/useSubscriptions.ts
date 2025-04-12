@@ -42,7 +42,7 @@ export const useSubscriptions = (userId: number) => {
         }
     };
 
-    const remove = async (id: number) => {
+    const remove = async (id: string | number) => {
         try {
             await dispatch(deleteSubscription(id)).unwrap();
             await syncService.addPendingOperation('DELETE', 'subscription', null, id);

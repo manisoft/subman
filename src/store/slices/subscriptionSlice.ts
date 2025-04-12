@@ -4,7 +4,8 @@ import { dbService } from '../../services/db.service';
 import axios from 'axios';
 import { getNextBillingDate } from '../../utils/dateUtils';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// Updated API URL with explicit Netlify functions path
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/.netlify/functions';
 
 // Helper to ensure authorization headers are set correctly
 const getAuthHeader = () => {

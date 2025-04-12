@@ -7,22 +7,17 @@ import {
   CardPreview, 
   makeStyles, 
   tokens, 
-  Divider,
   Caption1,
   Text,
   Badge,
-  CounterBadge,
   ProgressBar,
   Spinner
 } from '@fluentui/react-components';
 import { 
   DataPieRegular,
   CalendarMonthRegular,
-  WalletRegular,
-  AlertRegular,
   DiamondRegular,
-  MoneyRegular,
-  CalendarMonthFilled
+  MoneyRegular
 } from '@fluentui/react-icons';
 import { Subscription } from '../types/models';
 
