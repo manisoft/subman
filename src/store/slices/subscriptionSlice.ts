@@ -2,6 +2,7 @@ import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import { Subscription } from '../../types/models';
 import { dbService } from '../../services/db.service';
 import axios from 'axios';
+import { getNextBillingDate } from '../../utils/dateUtils';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
@@ -39,19 +40,27 @@ export const fetchUserSubscriptions = createAsyncThunk(
             subscriptions = Array.isArray(subscriptions) ? subscriptions : [];
             
             // Map API response to match local model structure
-            subscriptions = subscriptions.map((sub: any) => ({
-                id: sub.id || Date.now(),
-                name: sub.name || 'Untitled Subscription',
-                description: sub.description || '',
-                cost: sub.price ? parseFloat(sub.price) : (sub.cost || 0),
-                billingCycle: sub.billing_cycle || sub.billingCycle || 'MONTHLY',
-                startDate: sub.start_date || sub.startDate || new Date(),
-                endDate: sub.end_date || sub.endDate,
-                status: sub.status || 'ACTIVE',
-                categoryId: sub.category_id || sub.categoryId || 1,
-                userId: sub.user_id || sub.userId || userId,
-                nextBillingDate: sub.next_billing_date || sub.nextBillingDate || new Date()
-            }));
+            subscriptions = subscriptions.map((sub: any) => {
+                // Calculate the next billing date if it's in the past
+                const nextBillingDate = getNextBillingDate(
+                    sub.next_billing_date || sub.nextBillingDate || new Date(),
+                    sub.billing_cycle || sub.billingCycle || 'MONTHLY'
+                );
+                
+                return {
+                    id: sub.id || Date.now(),
+                    name: sub.name || 'Untitled Subscription',
+                    description: sub.description || '',
+                    cost: sub.price ? parseFloat(sub.price) : (sub.cost || 0),
+                    billingCycle: sub.billing_cycle || sub.billingCycle || 'MONTHLY',
+                    startDate: sub.start_date || sub.startDate || new Date(),
+                    endDate: sub.end_date || sub.endDate,
+                    status: sub.status || 'ACTIVE',
+                    categoryId: sub.category_id || sub.categoryId || 1,
+                    userId: sub.user_id || sub.userId || userId,
+                    nextBillingDate: nextBillingDate
+                };
+            });
             
             // Store in IndexedDB for offline access
             for (const sub of subscriptions) {
@@ -74,6 +83,12 @@ export const addSubscription = createAsyncThunk(
     'subscriptions/addSubscription',
     async (subscription: Omit<Subscription, 'id'>) => {
         try {
+            // Ensure the next billing date is in the future
+            const nextBillingDate = getNextBillingDate(
+                subscription.nextBillingDate,
+                subscription.billingCycle
+            );
+            
             // Format the data to match what the backend expects
             const apiData = {
                 name: subscription.name,
@@ -88,9 +103,9 @@ export const addSubscription = createAsyncThunk(
                 status: subscription.status,
                 category_id: subscription.categoryId,
                 user_id: subscription.userId,
-                next_billing_date: subscription.nextBillingDate instanceof Date 
-                    ? subscription.nextBillingDate.toISOString() 
-                    : subscription.nextBillingDate,
+                next_billing_date: nextBillingDate instanceof Date 
+                    ? nextBillingDate.toISOString() 
+                    : nextBillingDate,
                 description: subscription.description || ''
             };
             
@@ -104,7 +119,8 @@ export const addSubscription = createAsyncThunk(
             
             const newSubscription = {
                 ...subscription,
-                id: response.data.subscription.id
+                id: response.data.subscription.id,
+                nextBillingDate
             };
             
             await dbService.addOrUpdateSubscription(newSubscription);
@@ -114,7 +130,18 @@ export const addSubscription = createAsyncThunk(
             // If offline, store in IndexedDB only
             if (!navigator.onLine) {
                 const tempId = Date.now(); // Temporary ID for offline
-                const tempSubscription = { ...subscription, id: tempId };
+                
+                // Ensure the next billing date is in the future
+                const nextBillingDate = getNextBillingDate(
+                    subscription.nextBillingDate,
+                    subscription.billingCycle
+                );
+                
+                const tempSubscription = { 
+                    ...subscription, 
+                    id: tempId,
+                    nextBillingDate
+                };
                 await dbService.addOrUpdateSubscription(tempSubscription);
                 return tempSubscription;
             }
@@ -127,6 +154,12 @@ export const updateSubscription = createAsyncThunk(
     'subscriptions/updateSubscription',
     async (subscription: Subscription) => {
         try {
+            // Ensure the next billing date is in the future
+            const nextBillingDate = getNextBillingDate(
+                subscription.nextBillingDate,
+                subscription.billingCycle
+            );
+            
             // Format the data to match what the backend expects
             const apiData = {
                 name: subscription.name,
@@ -141,9 +174,9 @@ export const updateSubscription = createAsyncThunk(
                 status: subscription.status,
                 category_id: subscription.categoryId,
                 user_id: subscription.userId,
-                next_billing_date: subscription.nextBillingDate instanceof Date 
-                    ? subscription.nextBillingDate.toISOString() 
-                    : subscription.nextBillingDate,
+                next_billing_date: nextBillingDate instanceof Date 
+                    ? nextBillingDate.toISOString() 
+                    : nextBillingDate,
                 description: subscription.description || ''
             };
             
