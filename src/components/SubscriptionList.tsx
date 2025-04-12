@@ -63,23 +63,56 @@ export const SubscriptionList: React.FC = () => {
     const styles = useStyles();
     const { isOnline } = useNetworkStatus();
     const { user } = useAuthContext();
-    const { subscriptions, isLoading, error, remove } = useSubscriptions(
-        user ? parseInt(user.id, 10) : 0
-    );
-    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-
+    
     // Early return if no user
     if (!user) {
-        return null;
+        return <div>Loading subscriptions...</div>;
     }
+    
+    // Convert user ID to number or generate hash for UUID format
+    let userId: number;
+    if (typeof user.id === 'string') {
+        if (user.id.includes('-')) {
+            // If UUID, generate a numeric hash
+            userId = Math.abs(user.id.split('').reduce((a, b) => {
+                a = ((a << 5) - a) + b.charCodeAt(0);
+                return a & a;
+            }, 0));
+        } else {
+            // Try to parse as number
+            userId = parseInt(user.id, 10) || Date.now();
+        }
+    } else {
+        userId = user.id;
+    }
+    
+    const { subscriptions, isLoading, error, remove } = useSubscriptions(userId);
+    const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
-    const handleDelete = async (id: number) => {
-        const success = await remove(id);
-        if (!success && !isOnline) {
-            // Show offline notification
+    const handleDelete = async (id: string | number) => {
+        try {
+            const success = await remove(id);
+            if (success) {
+                // Show success notification
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('Subscription Deleted', {
+                        body: 'The subscription was successfully deleted.',
+                    });
+                }
+            } else {
+                // Show error notification
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    new Notification('Delete Failed', {
+                        body: 'Failed to delete the subscription.',
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error deleting subscription:', error);
+            // Show error notification
             if ('Notification' in window && Notification.permission === 'granted') {
-                new Notification('Offline Delete', {
-                    body: 'The subscription will be deleted when you are back online.',
+                new Notification('Error', {
+                    body: 'Error deleting subscription.',
                 });
             }
         }

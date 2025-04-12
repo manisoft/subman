@@ -15,8 +15,28 @@ export const useDashboardData = () => {
         setIsLoading(true);
         const currentUser = authService.getCurrentUser();
         
-        if (currentUser && status === 'idle') {
-          const userId = typeof currentUser.id === 'string' ? parseInt(currentUser.id, 10) : currentUser.id;
+        console.log('Current user:', currentUser);
+        console.log('Subscription status:', status);
+        console.log('Current subscriptions:', subscriptions);
+        
+        if (currentUser && (status === 'idle' || subscriptions.length === 0)) {
+          // Try to parse the user ID correctly - handle both string and number formats
+          let userId: number;
+          if (typeof currentUser.id === 'string') {
+            // If the ID is a UUID format, generate a numeric hash as fallback
+            if (currentUser.id.includes('-')) {
+              userId = Math.abs(currentUser.id.split('').reduce((a, b) => {
+                a = ((a << 5) - a) + b.charCodeAt(0);
+                return a & a;
+              }, 0));
+            } else {
+              userId = parseInt(currentUser.id, 10);
+            }
+          } else {
+            userId = currentUser.id;
+          }
+          
+          console.log('Fetching subscriptions for user ID:', userId);
           await dispatch(fetchUserSubscriptions(userId) as any);
         }
       } catch (err) {
@@ -27,7 +47,7 @@ export const useDashboardData = () => {
     };
 
     loadData();
-  }, [dispatch, status]);
+  }, [dispatch, status, subscriptions.length]);
 
   return {
     subscriptions,

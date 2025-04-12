@@ -4,8 +4,13 @@ import { dbService } from '../../services/db.service';
 import axios from 'axios';
 import { getNextBillingDate } from '../../utils/dateUtils';
 
-// Updated API URL with explicit Netlify functions path
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/.netlify/functions';
+// Determine the environment and use appropriate API URL
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE_URL = isLocalhost 
+  ? 'http://localhost:3000/api' 
+  : '/.netlify/functions';
+
+console.log('Subscription API URL:', API_BASE_URL);
 
 // Helper to ensure authorization headers are set correctly
 const getAuthHeader = () => {
@@ -29,27 +34,45 @@ export const fetchUserSubscriptions = createAsyncThunk(
     'subscriptions/fetchUserSubscriptions',
     async (userId: number) => {
         try {
-            console.log('Fetching subscriptions with auth header:', getAuthHeader());
+            console.log(`Fetching subscriptions for user ${userId} from ${API_BASE_URL}/subscriptions/user/${userId}`);
+            console.log('Auth headers:', getAuthHeader());
             
             const response = await axios.get(`${API_BASE_URL}/subscriptions/user/${userId}`, {
                 headers: getAuthHeader()
             });
             
-            let subscriptions = response.data;
+            console.log('API Response:', response.data);
             
-            // Normalize and validate the data from API
-            subscriptions = Array.isArray(subscriptions) ? subscriptions : [];
+            // Handle different response formats
+            let subscriptions;
+            if (Array.isArray(response.data)) {
+                subscriptions = response.data;
+            } else if (response.data && typeof response.data === 'object') {
+                // Handle single subscription response
+                if (response.data.id) {
+                    subscriptions = [response.data];
+                } else if (response.data.subscriptions && Array.isArray(response.data.subscriptions)) {
+                    subscriptions = response.data.subscriptions;
+                } else {
+                    subscriptions = [];
+                }
+            } else {
+                subscriptions = [];
+            }
+            
+            console.log('Parsed subscriptions:', subscriptions);
             
             // Map API response to match local model structure
-            subscriptions = subscriptions.map((sub: any) => {
+            const formattedSubscriptions = subscriptions.map((sub: any) => {
                 // Calculate the next billing date if it's in the past
                 const nextBillingDate = getNextBillingDate(
                     sub.next_billing_date || sub.nextBillingDate || new Date(),
                     sub.billing_cycle || sub.billingCycle || 'MONTHLY'
                 );
                 
-                return {
-                    id: sub.id || Date.now(),
+                // Create formatted subscription with defaults for missing fields
+                const formattedSub = {
+                    id: sub.id || Date.now().toString(),
                     name: sub.name || 'Untitled Subscription',
                     description: sub.description || '',
                     cost: sub.price ? parseFloat(sub.price) : (sub.cost || 0),
@@ -61,20 +84,30 @@ export const fetchUserSubscriptions = createAsyncThunk(
                     userId: sub.user_id || sub.userId || userId,
                     nextBillingDate: nextBillingDate
                 };
+                
+                console.log('Formatted subscription:', formattedSub);
+                return formattedSub;
             });
             
             // Store in IndexedDB for offline access
-            for (const sub of subscriptions) {
+            for (const sub of formattedSubscriptions) {
                 await dbService.addOrUpdateSubscription(sub);
             }
-            return subscriptions;
+            
+            console.log('Returning formatted subscriptions:', formattedSubscriptions);
+            return formattedSubscriptions;
         } catch (error) {
             console.error('Error fetching subscriptions:', error);
+            
             // If API fails, try to get from IndexedDB
+            console.log('Attempting to fetch subscriptions from IndexedDB');
             const offlineSubscriptions = await dbService.getUserSubscriptions(userId);
+            console.log('IndexedDB subscriptions:', offlineSubscriptions);
+            
             if (offlineSubscriptions.length > 0) {
                 return offlineSubscriptions;
             }
+            
             throw error;
         }
     }
@@ -110,27 +143,42 @@ export const addSubscription = createAsyncThunk(
                 description: subscription.description || ''
             };
             
+            console.log(`Adding subscription: POST to ${API_BASE_URL}/subscriptions`);
             console.log('Sending subscription data:', apiData);
             
             const response = await axios.post(`${API_BASE_URL}/subscriptions`, apiData, {
                 headers: getAuthHeader()
             });
             
-            console.log('Subscription response:', response.data);
+            console.log('Add subscription response:', response.data);
+            
+            // Handle different response formats
+            let newId: string | number;
+            if (response.data && response.data.subscription && response.data.subscription.id) {
+                newId = response.data.subscription.id;
+            } else if (response.data && response.data.id) {
+                newId = response.data.id;
+            } else {
+                // Fallback to a timestamp if we don't get an ID back
+                newId = Date.now().toString();
+            }
             
             const newSubscription = {
                 ...subscription,
-                id: response.data.subscription.id,
+                id: newId,
                 nextBillingDate
             };
             
+            console.log('Created subscription object:', newSubscription);
             await dbService.addOrUpdateSubscription(newSubscription);
             return newSubscription;
         } catch (error) {
             console.error('Failed to add subscription:', error);
-            // If offline, store in IndexedDB only
+            
+            // Fallback for offline mode
             if (!navigator.onLine) {
-                const tempId = Date.now(); // Temporary ID for offline
+                console.log('Offline mode - adding subscription locally only');
+                const tempId = Date.now().toString();
                 
                 // Ensure the next billing date is in the future
                 const nextBillingDate = getNextBillingDate(
@@ -143,9 +191,12 @@ export const addSubscription = createAsyncThunk(
                     id: tempId,
                     nextBillingDate
                 };
+                
+                console.log('Created offline subscription:', tempSubscription);
                 await dbService.addOrUpdateSubscription(tempSubscription);
                 return tempSubscription;
             }
+            
             throw error;
         }
     }

@@ -1,5 +1,5 @@
 export interface Subscription {
-    id?: number;
+    id?: string | number;
     name: string;
     description?: string;
     cost: number;
@@ -31,8 +31,8 @@ export interface User {
 }
 
 export interface PaymentHistory {
-    id?: number;
-    subscriptionId: number;
+    id?: string | number;
+    subscriptionId: string | number;
     amount: number;
     paymentDate: Date;
     status: 'SUCCESSFUL' | 'FAILED' | 'PENDING';
