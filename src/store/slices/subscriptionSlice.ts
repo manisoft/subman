@@ -43,7 +43,7 @@ export const fetchUserSubscriptions = createAsyncThunk(
                 id: sub.id || Date.now(),
                 name: sub.name || 'Untitled Subscription',
                 description: sub.description || '',
-                cost: typeof sub.price === 'number' ? sub.price : (sub.cost || 0),
+                cost: sub.price ? parseFloat(sub.price) : (sub.cost || 0),
                 billingCycle: sub.billing_cycle || sub.billingCycle || 'MONTHLY',
                 startDate: sub.start_date || sub.startDate || new Date(),
                 endDate: sub.end_date || sub.endDate,
@@ -77,18 +77,18 @@ export const addSubscription = createAsyncThunk(
             // Format the data to match what the backend expects
             const apiData = {
                 name: subscription.name,
-                cost: subscription.cost,
-                billingCycle: subscription.billingCycle,
-                startDate: subscription.startDate instanceof Date 
+                price: subscription.cost.toString(), // Convert cost to string price for API
+                billing_cycle: subscription.billingCycle.toLowerCase(),
+                start_date: subscription.startDate instanceof Date 
                     ? subscription.startDate.toISOString() 
                     : subscription.startDate,
-                endDate: subscription.endDate instanceof Date 
+                end_date: subscription.endDate instanceof Date 
                     ? subscription.endDate.toISOString() 
                     : subscription.endDate,
                 status: subscription.status,
-                categoryId: subscription.categoryId,
-                userId: subscription.userId,
-                nextBillingDate: subscription.nextBillingDate instanceof Date 
+                category_id: subscription.categoryId,
+                user_id: subscription.userId,
+                next_billing_date: subscription.nextBillingDate instanceof Date 
                     ? subscription.nextBillingDate.toISOString() 
                     : subscription.nextBillingDate,
                 description: subscription.description || ''
@@ -127,9 +127,29 @@ export const updateSubscription = createAsyncThunk(
     'subscriptions/updateSubscription',
     async (subscription: Subscription) => {
         try {
+            // Format the data to match what the backend expects
+            const apiData = {
+                name: subscription.name,
+                price: subscription.cost.toString(),
+                billing_cycle: subscription.billingCycle.toLowerCase(),
+                start_date: subscription.startDate instanceof Date 
+                    ? subscription.startDate.toISOString() 
+                    : subscription.startDate,
+                end_date: subscription.endDate instanceof Date 
+                    ? subscription.endDate.toISOString() 
+                    : subscription.endDate,
+                status: subscription.status,
+                category_id: subscription.categoryId,
+                user_id: subscription.userId,
+                next_billing_date: subscription.nextBillingDate instanceof Date 
+                    ? subscription.nextBillingDate.toISOString() 
+                    : subscription.nextBillingDate,
+                description: subscription.description || ''
+            };
+            
             const response = await axios.put(
                 `${API_BASE_URL}/subscriptions/${subscription.id}`,
-                subscription,
+                apiData,
                 {
                     headers: getAuthHeader()
                 }
