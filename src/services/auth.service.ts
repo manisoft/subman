@@ -1,6 +1,5 @@
 import axios from 'axios';
 import { dbService } from './db.service';
-import { syncService } from './sync.service';
 import { User } from '../types/models';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
@@ -35,28 +34,28 @@ class AuthService {
     async login(credentials: LoginCredentials): Promise<User> {
         try {
             const response = await axios.post<AuthResponse>(
-                `${API_BASE_URL}/auth/login`,
-                credentials
+                `${API_BASE_URL}/auth`,
+                { ...credentials, type: 'login' }
             );
             await this.handleAuthResponse(response.data);
             return response.data.user;
-        } catch (error) {
+        } catch (_error) {
             // If offline, try to authenticate against IndexedDB
             if (!navigator.onLine) {
-                const user = await this.offlineLogin(credentials.email, credentials.password);
+                const user = await this.offlineLogin(credentials.email);
                 if (user) {
                     this.currentUser = user;
                     return user;
                 }
             }
-            throw error;
+            throw new Error('Authentication failed');
         }
     }
 
     async register(data: RegisterData): Promise<User> {
         const response = await axios.post<AuthResponse>(
-            `${API_BASE_URL}/auth/register`,
-            data
+            `${API_BASE_URL}/auth`,
+            { ...data, type: 'register' }
         );
         await this.handleAuthResponse(response.data);
         return response.data.user;
@@ -75,7 +74,7 @@ class AuthService {
         axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
     }
 
-    private async offlineLogin(email: string, password: string): Promise<User | null> {
+    private async offlineLogin(email: string): Promise<User | null> {
         const user = await dbService.getUserByEmail(email);
         if (user) {
             // In a real app, we'd need to handle password hashing properly

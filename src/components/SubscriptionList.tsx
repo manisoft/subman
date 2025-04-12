@@ -148,9 +148,7 @@ export const SubscriptionList: React.FC = () => {
             {/* Add Subscription Dialog */}
             <Dialog
                 open={isAddDialogOpen}
-                onOpenChange={(_event: React.MouseEvent<Element, MouseEvent>, data: { open: boolean }) =>
-                    setIsAddDialogOpen(data.open)
-                }
+                onOpenChange={(_event, data) => setIsAddDialogOpen(data.open)}
             >
                 <DialogSurface>
                     <DialogBody>
@@ -172,7 +170,7 @@ export const SubscriptionList: React.FC = () => {
                 </TableHeader>
                 <TableBody>
                     {subscriptions.map((subscription: Subscription) => (
-                        <TableRow key={subscription.id}>
+                        <TableRow key={subscription.id ?? 'temp'}>
                             <TableCell>{subscription.name}</TableCell>
                             <TableCell>{formatCurrency(subscription.cost)}</TableCell>
                             <TableCell>{subscription.billingCycle.toLowerCase()}</TableCell>
@@ -200,7 +198,8 @@ export const SubscriptionList: React.FC = () => {
                                                 <Button appearance="secondary">Cancel</Button>
                                                 <Button
                                                     appearance="primary"
-                                                    onClick={() => handleDelete(subscription.id!)}
+                                                    onClick={() => subscription.id && handleDelete(subscription.id)}
+                                                    disabled={!subscription.id}
                                                 >
                                                     Delete
                                                 </Button>

@@ -12,7 +12,7 @@ interface SubManDB extends DBSchema {
         value: Category;
     };
     users: {
-        key: number;
+        key: string;  // Changed from number to string to match User interface
         value: User;
         indexes: { 'by-email': string };
     };
@@ -30,10 +30,21 @@ export const initDB = async () => {
     const db = await openDB<SubManDB>(DB_NAME, DB_VERSION, {
         upgrade(db) {
             // Create stores
-            const subscriptionStore = db.createObjectStore('subscriptions', { keyPath: 'id', autoIncrement: true });
-            const categoryStore = db.createObjectStore('categories', { keyPath: 'id', autoIncrement: true });
-            const userStore = db.createObjectStore('users', { keyPath: 'id', autoIncrement: true });
-            const paymentStore = db.createObjectStore('paymentHistory', { keyPath: 'id', autoIncrement: true });
+            const subscriptionStore = db.createObjectStore('subscriptions', {
+                keyPath: 'id',
+                autoIncrement: true
+            });
+            const _categoryStore = db.createObjectStore('categories', {
+                keyPath: 'id',
+                autoIncrement: true
+            });
+            const userStore = db.createObjectStore('users', {
+                keyPath: 'id'  // Removed autoIncrement since we use UUID
+            });
+            const paymentStore = db.createObjectStore('paymentHistory', {
+                keyPath: 'id',
+                autoIncrement: true
+            });
 
             // Create indexes
             subscriptionStore.createIndex('by-user', 'userId');
@@ -86,7 +97,7 @@ class DBService {
     }
 
     // User methods
-    async addUser(user: Omit<User, 'id'>) {
+    async addUser(user: User) {
         const db = await this.dbPromise;
         return db.add('users', user);
     }
