@@ -88,16 +88,41 @@ class AuthService {
     }
 
     private async handleAuthResponse(data: AuthResponse) {
-        this.token = data.token;
-        this.currentUser = data.user;
-        localStorage.setItem('auth_token', data.token);
-        localStorage.setItem('current_user', JSON.stringify(data.user));
+        try {
+            console.log('Auth response received:', data);
+            
+            // Create a properly formatted user object
+            const currentTime = new Date();
+            const formattedUser: User = {
+                id: data.user.id,
+                email: data.user.email,
+                name: data.user.name,
+                role: data.user.role as 'user' | 'admin',
+                // Add missing required fields with default values
+                created_at: data.user.created_at ? new Date(data.user.created_at) : currentTime,
+                updated_at: data.user.updated_at ? new Date(data.user.updated_at) : currentTime,
+                // Optional fields
+                avatar_url: data.user.avatar_url,
+                last_sync: data.user.last_sync ? new Date(data.user.last_sync) : currentTime,
+                version: data.user.version || '1.0'
+            };
+            
+            this.token = data.token;
+            this.currentUser = formattedUser;
+            localStorage.setItem('auth_token', data.token);
+            localStorage.setItem('current_user', JSON.stringify(formattedUser));
 
-        // Store user data in IndexedDB for offline access
-        await dbService.addUser(data.user);
+            // Store user data in IndexedDB for offline access
+            await dbService.addUser(formattedUser);
 
-        // Set up axios interceptor for authentication
-        axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+            // Set up axios interceptor for authentication
+            axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+            
+            console.log('Auth setup completed successfully');
+        } catch (error) {
+            console.error('Error handling auth response:', error);
+            throw new Error('Failed to process authentication response');
+        }
     }
 
     private async offlineLogin(email: string): Promise<User | null> {

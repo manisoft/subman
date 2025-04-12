@@ -68,15 +68,21 @@ export const handler: Handler = async (event) => {
                     { expiresIn: '7d' }
                 );
 
+                // Get current time for timestamps
+                const currentTime = new Date().toISOString();
+
                 return {
                     statusCode: 200,
+                    headers,
                     body: JSON.stringify({
                         token,
                         user: {
                             id: user.id,
                             email: user.email,
                             name: user.name,
-                            role: user.role
+                            role: user.role,
+                            created_at: user.created_at || currentTime,
+                            updated_at: user.updated_at || currentTime
                         }
                     })
                 };
@@ -94,11 +100,25 @@ export const handler: Handler = async (event) => {
                     [email]
                 );
 
+                // Get current time for timestamps
+                const currentTime = new Date().toISOString();
+                const userObj = (newUser as any[])[0];
+
                 return {
                     statusCode: 201,
+                    headers,
                     body: JSON.stringify({
                         message: 'User created successfully',
-                        user: (newUser as any[])[0]
+                        token: jwt.sign(
+                            { id: userObj.id, email: userObj.email, role: userObj.role },
+                            process.env.JWT_SECRET || 'your-secret-key',
+                            { expiresIn: '7d' }
+                        ),
+                        user: {
+                            ...userObj,
+                            created_at: userObj.created_at || currentTime,
+                            updated_at: userObj.updated_at || currentTime
+                        }
                     })
                 };
             }
