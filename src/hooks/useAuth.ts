@@ -25,6 +25,7 @@ export const useAuth = () => {
             
             // Use a slight delay to ensure state is updated before navigation
             setTimeout(() => {
+                setIsLoading(false); // Reset loading state BEFORE navigation
                 navigate('/dashboard');
             }, 100);
         } catch (e) {
@@ -32,8 +33,6 @@ export const useAuth = () => {
             setError(e instanceof Error ? e.message : 'Failed to login');
             setIsLoading(false); // Make sure to reset loading state on error
             throw e;
-        } finally {
-            // Moved to setTimeout for successful login to avoid race conditions
         }
     };
 
@@ -47,6 +46,7 @@ export const useAuth = () => {
             
             // Use a slight delay to ensure state is updated before navigation
             setTimeout(() => {
+                setIsLoading(false); // Reset loading state BEFORE navigation
                 navigate('/dashboard');
             }, 100);
         } catch (e) {
@@ -54,8 +54,6 @@ export const useAuth = () => {
             setError(e instanceof Error ? e.message : 'Failed to register');
             setIsLoading(false); // Make sure to reset loading state on error
             throw e;
-        } finally {
-            // Moved to setTimeout for successful registration to avoid race conditions
         }
     };
 
