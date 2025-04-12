@@ -202,19 +202,41 @@ export const updateSubscription = createAsyncThunk(
 
 export const deleteSubscription = createAsyncThunk(
     'subscriptions/deleteSubscription',
-    async (id: number) => {
+    async (id: string | number) => {
         try {
+            console.log(`Attempting to delete subscription with ID: ${id}`);
+            
             await axios.delete(`${API_BASE_URL}/subscriptions/${id}`, {
                 headers: getAuthHeader()
             });
+            
+            // Only delete from IndexedDB if the API call was successful
             await dbService.deleteSubscription(id);
+            console.log(`Successfully deleted subscription: ${id}`);
             return id;
-        } catch (error) {
+        } catch (error: any) {
+            console.error('Delete subscription error:', error);
+            
             // If offline, delete from IndexedDB only
             if (!navigator.onLine) {
+                console.log('Offline mode: Deleting from IndexedDB only');
                 await dbService.deleteSubscription(id);
                 return id;
             }
+            
+            // If the subscription doesn't exist on the server but exists locally,
+            // we can still delete it from IndexedDB
+            if (error.response && (error.response.status === 404 || error.response.status === 400)) {
+                console.log('Subscription not found on server or bad request, deleting from local DB anyway');
+                try {
+                    await dbService.deleteSubscription(id);
+                    return id;
+                } catch (dbError) {
+                    console.error('Failed to delete from IndexedDB:', dbError);
+                    throw error; // Rethrow the original error
+                }
+            }
+            
             throw error;
         }
     }

@@ -3,7 +3,7 @@ import { Subscription, Category, User, PaymentHistory } from '../types/models';
 
 interface SubManDB extends DBSchema {
     subscriptions: {
-        key: number;
+        key: string | number;  // Updated to handle both string and number IDs
         value: Subscription;
         indexes: { 'by-user': number; 'by-category': number };
     };
@@ -19,7 +19,7 @@ interface SubManDB extends DBSchema {
     paymentHistory: {
         key: number;
         value: PaymentHistory;
-        indexes: { 'by-subscription': number };
+        indexes: { 'by-subscription': string | number };  // Updated to match subscription key
     };
 } 
 
@@ -65,7 +65,7 @@ class DBService {
         return db.add('subscriptions', subscription);
     }
 
-    async getSubscription(id: number) {
+    async getSubscription(id: string | number) {
         const db = await this.dbPromise;
         return db.get('subscriptions', id);
     }
@@ -75,9 +75,19 @@ class DBService {
         return db.put('subscriptions', subscription);
     }
 
-    async deleteSubscription(id: number) {
+    async deleteSubscription(id: string | number) {
         const db = await this.dbPromise;
-        return db.delete('subscriptions', id);
+        // If the ID is a string but contains only digits, convert it to a number
+        const dbId = typeof id === 'string' && /^\d+$/.test(id) ? parseInt(id, 10) : id;
+        
+        console.log(`Deleting subscription from IndexedDB with ID (${typeof dbId}):`, dbId);
+        
+        try {
+            return await db.delete('subscriptions', dbId);
+        } catch (error) {
+            console.error(`Failed to delete subscription with ID ${dbId}:`, error);
+            throw error;
+        }
     }
 
     async getUserSubscriptions(userId: number) {
