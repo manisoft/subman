@@ -84,22 +84,35 @@ export const SubscriptionList: React.FC = () => {
         return <div>Loading subscriptions...</div>;
     }
     
-    // Convert user ID to number or generate hash for UUID format
+    // Extract userId from the user object
     let userId: number;
     if (typeof user.id === 'string') {
-        if (user.id.includes('-')) {
-            // If UUID, generate a numeric hash
+        // For UUIDs (contains dashes or alphabetic characters), generate a numeric hash
+        if (user.id.includes('-') || /[a-zA-Z]/.test(user.id)) {
+            console.log(`Converting UUID ${user.id} to numeric ID`);
+            // Create a consistent numeric hash from the UUID
             userId = Math.abs(user.id.split('').reduce((a, b) => {
                 a = ((a << 5) - a) + b.charCodeAt(0);
                 return a & a;
             }, 0));
+            console.log(`Converted to: ${userId}`);
         } else {
-            // Try to parse as number
-            userId = parseInt(user.id, 10) || Date.now();
+            // It's a numeric string, parse it
+            userId = parseInt(user.id, 10);
+            if (isNaN(userId)) {
+                console.warn(`Could not parse user ID "${user.id}" as number, using fallback`);
+                userId = Date.now();
+            }
         }
-    } else {
+    } else if (typeof user.id === 'number') {
         userId = user.id;
+    } else {
+        // Fallback to timestamp if ID is undefined or in an unexpected format
+        console.warn('User ID is in an unexpected format, using fallback');
+        userId = Date.now();
     }
+    
+    console.log(`Using user ID: ${userId} for subscription fetch`);
     
     const { subscriptions, isLoading, error, remove } = useSubscriptions(userId);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);

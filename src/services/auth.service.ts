@@ -7,6 +7,15 @@ const authClient = axios.create({
     timeout: 10000 // 10 second timeout
 });
 
+// Share auth headers between instances
+authClient.interceptors.request.use(config => {
+    const authHeader = axios.defaults.headers.common['Authorization'];
+    if (authHeader && config.headers) {
+        config.headers['Authorization'] = authHeader;
+    }
+    return config;
+});
+
 // Get the current hostname
 const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
 
@@ -159,8 +168,13 @@ class AuthService {
             localStorage.setItem('auth_token', data.token);
             localStorage.setItem('current_user', JSON.stringify(formattedUser));
 
-            // Set up axios interceptor for authentication
-            axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+            // Format token with Bearer prefix if needed
+            const authToken = data.token.startsWith('Bearer ') ? data.token : `Bearer ${data.token}`;
+            
+            // Set up axios interceptor for authentication (for both axios instances)
+            axios.defaults.headers.common['Authorization'] = authToken;
+            
+            console.log(`Auth token set in axios defaults: ${authToken.substring(0, 20)}...`);
             
             // Store user data in IndexedDB for offline access
             try {
@@ -206,6 +220,7 @@ class AuthService {
         localStorage.removeItem('auth_token');
         localStorage.removeItem('current_user');
         delete axios.defaults.headers.common['Authorization'];
+        console.log('User logged out, auth headers cleared');
     }
 
     isAuthenticated(): boolean {
