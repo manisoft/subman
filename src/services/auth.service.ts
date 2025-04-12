@@ -3,6 +3,7 @@ import { dbService } from './db.service';
 import { User } from '../types/models';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+const IS_PRODUCTION = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
 
 interface AuthResponse {
     user: User;
@@ -33,21 +34,66 @@ class AuthService {
 
     async login(credentials: LoginCredentials): Promise<User> {
         try {
+            // In production (Netlify), prioritize offline login
+            if (IS_PRODUCTION) {
+                try {
+                    const user = await this.offlineLogin(credentials.email);
+                    if (user) {
+                        this.currentUser = user;
+                        // Generate a mock token for demo purposes
+                        this.token = `demo-token-${Date.now()}`;
+                        localStorage.setItem('auth_token', this.token);
+                        localStorage.setItem('current_user', JSON.stringify(user));
+                        return user;
+                    }
+                } catch (error) {
+                    console.log('Offline login failed, trying API...');
+                }
+            }
+
+            // Try API login (will fall back to this in development or if offline login fails)
             const response = await axios.post<AuthResponse>(
                 `${API_BASE_URL}/auth`,
                 { ...credentials, type: 'login' }
             );
             await this.handleAuthResponse(response.data);
             return response.data.user;
-        } catch (_error) {
+        } catch (error) {
             // If offline, try to authenticate against IndexedDB
             if (!navigator.onLine) {
                 const user = await this.offlineLogin(credentials.email);
                 if (user) {
                     this.currentUser = user;
+                    // Generate a mock token for demo purposes
+                    this.token = `demo-token-${Date.now()}`;
+                    localStorage.setItem('auth_token', this.token);
+                    localStorage.setItem('current_user', JSON.stringify(user));
                     return user;
                 }
             }
+            
+            if (IS_PRODUCTION) {
+                // For demo purposes, create a test user when in production
+                const demoUser: User = {
+                    id: 'demo-user',
+                    name: 'Demo User',
+                    email: credentials.email,
+                    role: 'user',
+                    created_at: new Date(),
+                    updated_at: new Date()
+                };
+                
+                // Store demo user for future offline logins
+                await dbService.addUser(demoUser);
+                
+                this.currentUser = demoUser;
+                this.token = `demo-token-${Date.now()}`;
+                localStorage.setItem('auth_token', this.token);
+                localStorage.setItem('current_user', JSON.stringify(demoUser));
+                
+                return demoUser;
+            }
+            
             throw new Error('Authentication failed');
         }
     }
