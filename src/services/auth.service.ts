@@ -36,7 +36,18 @@ class AuthService {
         this.token = localStorage.getItem('auth_token');
         const storedUser = localStorage.getItem('current_user');
         if (storedUser) {
-            this.currentUser = JSON.parse(storedUser);
+            try {
+                this.currentUser = JSON.parse(storedUser);
+            } catch (e) {
+                console.error('Error parsing stored user:', e);
+                localStorage.removeItem('current_user');
+            }
+        }
+
+        // Set axios default header if token exists
+        if (this.token) {
+            axios.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
+            console.log('Auth token restored from localStorage');
         }
     }
 

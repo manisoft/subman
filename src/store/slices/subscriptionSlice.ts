@@ -5,6 +5,12 @@ import axios from 'axios';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
 
+// Helper to ensure authorization headers are set correctly
+const getAuthHeader = () => {
+    const token = localStorage.getItem('auth_token');
+    return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 interface SubscriptionState {
     items: Subscription[];
     status: 'idle' | 'loading' | 'succeeded' | 'failed';
@@ -21,7 +27,12 @@ export const fetchUserSubscriptions = createAsyncThunk(
     'subscriptions/fetchUserSubscriptions',
     async (userId: number) => {
         try {
-            const response = await axios.get(`${API_BASE_URL}/subscriptions/user/${userId}`);
+            console.log('Fetching subscriptions with auth header:', getAuthHeader());
+            
+            const response = await axios.get(`${API_BASE_URL}/subscriptions/user/${userId}`, {
+                headers: getAuthHeader()
+            });
+            
             let subscriptions = response.data;
             
             // Normalize and validate the data from API
@@ -48,6 +59,7 @@ export const fetchUserSubscriptions = createAsyncThunk(
             }
             return subscriptions;
         } catch (error) {
+            console.error('Error fetching subscriptions:', error);
             // If API fails, try to get from IndexedDB
             const offlineSubscriptions = await dbService.getUserSubscriptions(userId);
             if (offlineSubscriptions.length > 0) {
@@ -62,7 +74,9 @@ export const addSubscription = createAsyncThunk(
     'subscriptions/addSubscription',
     async (subscription: Omit<Subscription, 'id'>) => {
         try {
-            const response = await axios.post(`${API_BASE_URL}/subscriptions`, subscription);
+            const response = await axios.post(`${API_BASE_URL}/subscriptions`, subscription, {
+                headers: getAuthHeader()
+            });
             const newSubscription = response.data;
             await dbService.addSubscription(newSubscription);
             return newSubscription;
@@ -85,7 +99,10 @@ export const updateSubscription = createAsyncThunk(
         try {
             const response = await axios.put(
                 `${API_BASE_URL}/subscriptions/${subscription.id}`,
-                subscription
+                subscription,
+                {
+                    headers: getAuthHeader()
+                }
             );
             await dbService.updateSubscription(subscription);
             return response.data;
@@ -104,7 +121,9 @@ export const deleteSubscription = createAsyncThunk(
     'subscriptions/deleteSubscription',
     async (id: number) => {
         try {
-            await axios.delete(`${API_BASE_URL}/subscriptions/${id}`);
+            await axios.delete(`${API_BASE_URL}/subscriptions/${id}`, {
+                headers: getAuthHeader()
+            });
             await dbService.deleteSubscription(id);
             return id;
         } catch (error) {
