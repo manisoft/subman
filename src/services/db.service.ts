@@ -21,7 +21,7 @@ interface SubManDB extends DBSchema {
         value: PaymentHistory;
         indexes: { 'by-subscription': number };
     };
-}
+} 
 
 const DB_NAME = 'subman-db';
 const DB_VERSION = 1;
@@ -85,6 +85,19 @@ class DBService {
         return db.getAllFromIndex('subscriptions', 'by-user', userId);
     }
 
+    async addOrUpdateSubscription(subscription: Subscription) {
+        const db = await this.dbPromise;
+        try {
+            return await db.add('subscriptions', subscription);
+        } catch (error: any) {
+            if (error.name === 'ConstraintError') {
+                console.log('Subscription already exists in IndexedDB, updating instead...');
+                return await this.updateSubscription(subscription);
+            }
+            throw error;
+        }
+    }
+
     // Category methods
     async addCategory(category: Omit<Category, 'id'>) {
         const db = await this.dbPromise;
@@ -99,7 +112,37 @@ class DBService {
     // User methods
     async addUser(user: User) {
         const db = await this.dbPromise;
-        return db.add('users', user);
+        try {
+            // Check if a user with this ID already exists
+            const existingUserById = await db.get('users', user.id);
+            if (existingUserById) {
+                console.log('User with this ID already exists, updating instead...');
+                return await this.updateUser(user);
+            }
+            
+            // Check if a user with this email already exists
+            const existingUserByEmail = await this.getUserByEmail(user.email);
+            if (existingUserByEmail) {
+                console.log('User with this email already exists, updating instead...');
+                return await this.updateUser({
+                    ...user,
+                    id: existingUserByEmail.id
+                });
+            }
+            
+            return await db.add('users', user);
+        } catch (error: any) {
+            if (error.name === 'ConstraintError') {
+                console.log('User already exists in IndexedDB (constraint error), updating instead...');
+                return await this.updateUser(user);
+            }
+            throw error;
+        }
+    }
+
+    async updateUser(user: User) {
+        const db = await this.dbPromise;
+        return db.put('users', user);
     }
 
     async getUserByEmail(email: string) {

@@ -55,7 +55,7 @@ export const fetchUserSubscriptions = createAsyncThunk(
             
             // Store in IndexedDB for offline access
             for (const sub of subscriptions) {
-                await dbService.addSubscription(sub);
+                await dbService.addOrUpdateSubscription(sub);
             }
             return subscriptions;
         } catch (error) {
@@ -107,7 +107,7 @@ export const addSubscription = createAsyncThunk(
                 id: response.data.subscription.id
             };
             
-            await dbService.addSubscription(newSubscription);
+            await dbService.addOrUpdateSubscription(newSubscription);
             return newSubscription;
         } catch (error) {
             console.error('Failed to add subscription:', error);
@@ -115,7 +115,7 @@ export const addSubscription = createAsyncThunk(
             if (!navigator.onLine) {
                 const tempId = Date.now(); // Temporary ID for offline
                 const tempSubscription = { ...subscription, id: tempId };
-                await dbService.addSubscription(tempSubscription);
+                await dbService.addOrUpdateSubscription(tempSubscription);
                 return tempSubscription;
             }
             throw error;

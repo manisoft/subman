@@ -117,9 +117,22 @@ class AuthService {
             // Set up axios interceptor for authentication
             axios.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
             
-            // Store user data in IndexedDB for offline access (this might throw constraint errors)
+            // Store user data in IndexedDB for offline access
             try {
-                await dbService.addUser(formattedUser);
+                // Check if the user already exists in the database
+                const existingUser = await dbService.getUserByEmail(formattedUser.email);
+                
+                if (existingUser) {
+                    // Ensure we use the same ID from the database to avoid key conflicts
+                    // Update the existing user with their exact ID to avoid constraint errors
+                    await dbService.updateUser({
+                        ...formattedUser,
+                        id: existingUser.id
+                    });
+                } else {
+                    // Add the new user
+                    await dbService.addUser(formattedUser);
+                }
             } catch (dbError: any) {
                 console.warn('IndexedDB operation failed, but authentication succeeded:', dbError.message);
                 // Authentication still succeeded even if local storage failed
