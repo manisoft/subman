@@ -34,7 +34,7 @@ export const initDB = async () => {
                 keyPath: 'id',
                 autoIncrement: true
             });
-            const _categoryStore = db.createObjectStore('categories', {
+            db.createObjectStore('categories', {
                 keyPath: 'id',
                 autoIncrement: true
             });
