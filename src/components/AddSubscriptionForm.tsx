@@ -8,6 +8,7 @@ import {
     Spinner,
     Select,
     Field,
+    tokens,
 } from '@fluentui/react-components';
 import { DatePicker } from '@fluentui/react-datepicker-compat';
 import { useSubscriptions } from '../hooks/useSubscriptions';
@@ -16,26 +17,46 @@ import { useNetworkStatus } from '../hooks/useNetworkStatus';
 import { Subscription } from '../types/models';
 
 const useStyles = makeStyles({
+    card: {
+        width: '100%',
+        maxWidth: '100%',
+        margin: '0',
+        padding: '0',
+        boxShadow: 'none',
+        borderRadius: tokens.borderRadiusMedium,
+    },
+    cardHeader: {
+        paddingBottom: '8px',
+    },
     form: {
         display: 'flex',
         flexDirection: 'column',
         gap: '16px',
-        padding: '20px',
+        padding: '16px',
+        width: '100%',
     },
     field: {
         display: 'flex',
         flexDirection: 'column',
-        gap: '4px',
+        gap: '8px',
+        width: '100%',
     },
     actions: {
         display: 'flex',
         justifyContent: 'flex-end',
         gap: '8px',
-        marginTop: '16px',
+        marginTop: '24px',
+        width: '100%',
     },
     error: {
-        color: '#d13438',
+        color: tokens.colorPaletteRedForeground1,
         marginBottom: '16px',
+        padding: '8px',
+        borderRadius: tokens.borderRadiusSmall,
+        backgroundColor: tokens.colorPaletteRedBackground1,
+    },
+    input: {
+        width: '100%',
     },
 });
 
@@ -112,30 +133,40 @@ export const AddSubscriptionForm: React.FC<AddSubscriptionFormProps> = ({ onClos
     };
 
     return (
-        <Card>
-            <CardHeader header={<h2>Add New Subscription</h2>} />
+        <Card className={styles.card}>
+            <CardHeader 
+                header={<h2>Add New Subscription</h2>} 
+                className={styles.cardHeader}
+            />
             <form onSubmit={handleSubmit} className={styles.form}>
                 {error && <div className={styles.error}>{error}</div>}
 
-                <Field label="Subscription Name" required>
+                <Field label="Subscription Name" required className={styles.field}>
                     <Input
+                        className={styles.input}
                         value={formData.name}
                         onChange={(_, data) => handleInputChange('name', data.value)}
                         required
                         disabled={isLoading}
+                        appearance="outline"
+                        placeholder="Enter subscription name"
                     />
                 </Field>
 
-                <Field label="Description">
+                <Field label="Description" className={styles.field}>
                     <Input
+                        className={styles.input}
                         value={formData.description}
                         onChange={(_, data) => handleInputChange('description', data.value)}
                         disabled={isLoading}
+                        appearance="outline"
+                        placeholder="Enter description (optional)"
                     />
                 </Field>
 
-                <Field label="Cost" required>
+                <Field label="Cost" required className={styles.field}>
                     <Input
+                        className={styles.input}
                         type="number"
                         value={formData.cost}
                         onChange={(_, data) => handleInputChange('cost', data.value)}
@@ -143,14 +174,18 @@ export const AddSubscriptionForm: React.FC<AddSubscriptionFormProps> = ({ onClos
                         step="0.01"
                         required
                         disabled={isLoading}
+                        appearance="outline"
+                        placeholder="0.00"
                     />
                 </Field>
 
-                <Field label="Billing Cycle" required>
+                <Field label="Billing Cycle" required className={styles.field}>
                     <Select
+                        className={styles.input}
                         value={formData.billingCycle}
                         onChange={(_, data) => handleInputChange('billingCycle', data.value as FormData['billingCycle'])}
                         disabled={isLoading}
+                        appearance="outline"
                     >
                         <option value="MONTHLY">Monthly</option>
                         <option value="YEARLY">Yearly</option>
@@ -158,17 +193,19 @@ export const AddSubscriptionForm: React.FC<AddSubscriptionFormProps> = ({ onClos
                     </Select>
                 </Field>
 
-                <Field label="Start Date" required>
+                <Field label="Start Date" required className={styles.field}>
                     <DatePicker
+                        className={styles.input}
                         value={formData.startDate}
                         onSelectDate={(date) => date && handleInputChange('startDate', date)}
                         disabled={isLoading}
+                        placeholder="Select a date"
                     />
                 </Field>
 
                 <div className={styles.actions}>
                     <Button
-                        appearance="subtle"
+                        appearance="secondary"
                         onClick={onClose}
                         disabled={isLoading}
                     >

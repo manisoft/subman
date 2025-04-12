@@ -2,8 +2,13 @@ import axios from 'axios';
 import { dbService } from './db.service';
 import { Subscription } from '../types/models';
 
-// Updated API URL with explicit Netlify functions path
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/.netlify/functions';
+// Determine the environment and use appropriate API URL
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+const API_BASE_URL = isLocalhost 
+  ? 'http://localhost:3000/api' 
+  : '/.netlify/functions';
+
+console.log('Sync service using API URL:', API_BASE_URL);
 
 type EntityType = Subscription;
 
@@ -80,28 +85,113 @@ class SyncService {
     }
 
     private async syncCreate(operation: SyncOperation) {
-        const response = await axios.post(
-            `${API_BASE_URL}/${operation.entity}s`,
-            operation.data
-        );
-        if (operation.entity === 'subscription' && operation.data) {
-            await dbService.updateSubscription({
-                ...(operation.data as Subscription),
-                id: response.data.id
-            } as Subscription);
+        try {
+            console.log(`Syncing ${operation.entity} creation to ${API_BASE_URL}/${operation.entity}s`);
+            
+            const response = await axios.post(
+                `${API_BASE_URL}/${operation.entity}s`,
+                operation.data,
+                {
+                    headers: this.getAuthHeader()
+                }
+            );
+            
+            console.log('Create sync response:', response.data);
+            
+            if (operation.entity === 'subscription' && operation.data) {
+                // Extract ID from different possible response formats
+                let newId: string;
+                if (response.data && response.data.subscription && response.data.subscription.id) {
+                    newId = String(response.data.subscription.id);
+                } else if (response.data && response.data.id) {
+                    newId = String(response.data.id);
+                } else {
+                    // Fallback to a timestamp if we don't get an ID back
+                    newId = Date.now().toString();
+                }
+                
+                // Update the local subscription with the server-generated ID
+                const updatedSubscription = {
+                    ...(operation.data as Subscription),
+                    id: newId
+                } as Subscription;
+                
+                console.log('Updating local subscription with ID:', newId);
+                await dbService.updateSubscription(updatedSubscription);
+            }
+        } catch (error) {
+            console.error('Error during create sync:', error);
+            
+            // If offline or network error, store locally but keep in pending operations
+            if (!navigator.onLine || this.isNetworkError(error)) {
+                if (operation.entity === 'subscription' && operation.data) {
+                    console.log('Network error/offline - storing subscription locally');
+                    // Make sure we mark it to be synced later
+                    this.saveSyncState();
+                }
+            }
+            
+            throw error;
         }
     }
 
     private async syncUpdate(operation: SyncOperation) {
-        await axios.put(
-            `${API_BASE_URL}/${operation.entity}s/${operation.id}`,
-            operation.data
-        );
+        try {
+            await axios.put(
+                `${API_BASE_URL}/${operation.entity}s/${operation.id}`,
+                operation.data,
+                {
+                    headers: this.getAuthHeader()
+                }
+            );
+        } catch (error) {
+            // If offline, keep in pending operations
+            if (!navigator.onLine || this.isNetworkError(error)) {
+                this.saveSyncState();
+            }
+            throw error;
+        }
     }
 
     private async syncDelete(operation: SyncOperation) {
-        await axios.delete(
-            `${API_BASE_URL}/${operation.entity}s/${operation.id}`
+        try {
+            await axios.delete(
+                `${API_BASE_URL}/${operation.entity}s/${operation.id}`,
+                {
+                    headers: this.getAuthHeader()
+                }
+            );
+        } catch (error) {
+            // If offline, keep in pending operations
+            if (!navigator.onLine || this.isNetworkError(error)) {
+                this.saveSyncState();
+            }
+            throw error;
+        }
+    }
+
+    // Helper to get auth headers
+    private getAuthHeader() {
+        const token = localStorage.getItem('auth_token');
+        if (!token) return {};
+        
+        // Ensure token has Bearer prefix
+        const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+        return { Authorization: formattedToken };
+    }
+    
+    // Helper to identify network errors
+    private isNetworkError(error: any): boolean {
+        return (
+            !navigator.onLine || 
+            (error && (
+                error.code === 'ERR_NETWORK' ||
+                error.code === 'ECONNABORTED' ||
+                (error.message && (
+                    error.message.includes('Network Error') ||
+                    error.message.includes('timeout')
+                ))
+            ))
         );
     }
 

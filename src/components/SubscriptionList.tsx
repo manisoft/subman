@@ -234,8 +234,16 @@ export const SubscriptionList: React.FC = () => {
             <Dialog
                 open={isAddDialogOpen}
                 onOpenChange={(_event, data) => setIsAddDialogOpen(data.open)}
+                modalType="modal"
             >
-                <DialogSurface>
+                <DialogSurface
+                    style={{
+                        width: '100%',
+                        maxWidth: '600px',
+                        minWidth: '320px',
+                        padding: 0
+                    }}
+                >
                     <DialogBody>
                         <AddSubscriptionForm onClose={() => setIsAddDialogOpen(false)} />
                     </DialogBody>
