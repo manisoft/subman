@@ -15,7 +15,15 @@ console.log('Subscription API URL:', API_BASE_URL);
 // Helper to ensure authorization headers are set correctly
 const getAuthHeader = () => {
     const token = localStorage.getItem('auth_token');
-    return token ? { Authorization: `Bearer ${token}` } : {};
+    if (!token) {
+        console.warn('No auth token found in localStorage');
+        return {};
+    }
+    
+    // Ensure token has Bearer prefix
+    const formattedToken = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    console.log('Using auth token:', formattedToken.substring(0, 20) + '...');
+    return { Authorization: formattedToken };
 };
 
 interface SubscriptionState {
@@ -34,6 +42,14 @@ export const fetchUserSubscriptions = createAsyncThunk(
     'subscriptions/fetchUserSubscriptions',
     async (userId: number) => {
         try {
+            // Check if we have a token first
+            const token = localStorage.getItem('auth_token');
+            if (!token) {
+                console.warn('No auth token available, fetching from IndexedDB only');
+                const offlineSubscriptions = await dbService.getUserSubscriptions(userId);
+                return offlineSubscriptions;
+            }
+            
             console.log(`Fetching subscriptions for user ${userId} from ${API_BASE_URL}/subscriptions/user/${userId}`);
             console.log('Auth headers:', getAuthHeader());
             

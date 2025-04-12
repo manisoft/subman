@@ -25,38 +25,53 @@ import { useAuthContext } from '../context/AuthContext';
 import { AddSubscriptionForm } from './AddSubscriptionForm';
 import { useSubscriptionBilling } from '../hooks/useSubscriptionBilling';
 import { DashboardSummary } from './DashboardSummary';
+import { authService } from '../services/auth.service';
 
 const useStyles = makeStyles({
     root: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '20px',
         width: '100%',
-        height: '100%',
-        padding: '20px',
+        padding: '20px'
     },
     header: {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: '20px',
+        marginBottom: '20px'
     },
     offline: {
         backgroundColor: '#FFF4CE',
-        padding: '8px',
+        padding: '10px',
         borderRadius: '4px',
-        marginBottom: '16px',
+        marginBottom: '20px',
+        color: '#5A4500'
     },
     billingInfo: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
+        padding: '5px 0'
     },
     upcomingBilling: {
-        color: '#c50f1f',
-        fontWeight: 'bold',
+        color: 'red',
+        fontWeight: 'bold'
     },
     tooltipContent: {
-        padding: '8px',
-        maxWidth: '300px',
+        padding: '10px'
     },
+    errorContainer: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: '20px',
+        padding: '30px',
+        textAlign: 'center'
+    },
+    errorActions: {
+        display: 'flex',
+        gap: '10px',
+        marginTop: '15px'
+    }
 });
 
 export const SubscriptionList: React.FC = () => {
@@ -160,7 +175,28 @@ export const SubscriptionList: React.FC = () => {
     }
 
     if (error) {
-        return <div>Error loading subscriptions: {error}</div>;
+        return (
+            <div className={styles.errorContainer}>
+                <div>Error loading subscriptions: {error}</div>
+                <div className={styles.errorActions}>
+                    <Button 
+                        appearance="primary" 
+                        onClick={() => {
+                            // Force logout and redirect to login page
+                            authService.logout();
+                            window.location.href = '/login';
+                        }}
+                    >
+                        Re-authenticate
+                    </Button>
+                    <Button 
+                        onClick={() => window.location.reload()}
+                    >
+                        Retry
+                    </Button>
+                </div>
+            </div>
+        );
     }
 
     return (

@@ -33,21 +33,22 @@ class AuthService {
 
     constructor() {
         // Try to restore session from localStorage
-        this.token = localStorage.getItem('auth_token');
-        const storedUser = localStorage.getItem('current_user');
-        if (storedUser) {
+        const token = localStorage.getItem('auth_token');
+        const userJson = localStorage.getItem('current_user');
+        
+        if (token && userJson) {
             try {
-                this.currentUser = JSON.parse(storedUser);
+                this.token = token;
+                this.currentUser = JSON.parse(userJson);
+                
+                // Set up axios interceptor for authentication
+                axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+                
+                console.log('Auth token restored from localStorage');
             } catch (e) {
-                console.error('Error parsing stored user:', e);
-                localStorage.removeItem('current_user');
+                console.error('Failed to restore user session:', e);
+                this.logout(); // Clear invalid data
             }
-        }
-
-        // Set axios default header if token exists
-        if (this.token) {
-            axios.defaults.headers.common['Authorization'] = `Bearer ${this.token}`;
-            console.log('Auth token restored from localStorage');
         }
     }
 
