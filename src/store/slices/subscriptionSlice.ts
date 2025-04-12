@@ -61,6 +61,14 @@ const initialState: SubscriptionState = {
     error: null
 };
 
+// Helper function to ensure IDs are always strings
+const ensureStringId = (id: string | number | undefined): string => {
+    if (id === undefined) {
+        return Date.now().toString();
+    }
+    return String(id);
+};
+
 export const fetchUserSubscriptions = createAsyncThunk(
     'subscriptions/fetchUserSubscriptions',
     async (userId: string | number) => {
@@ -115,7 +123,7 @@ export const fetchUserSubscriptions = createAsyncThunk(
                     
                     // Convert snake_case to camelCase and ensure all required fields are present
                     const formattedSub = {
-                        id: String(sub.id || Date.now()),
+                        id: ensureStringId(sub.id),
                         name: sub.name || 'Untitled Subscription',
                         description: sub.description || '',
                         cost: sub.price ? parseFloat(sub.price) : (sub.cost || 0),
@@ -124,7 +132,7 @@ export const fetchUserSubscriptions = createAsyncThunk(
                         endDate: sub.end_date || sub.endDate,
                         status: sub.status || 'ACTIVE',
                         categoryId: sub.category_id || sub.categoryId || (sub.category ? sub.category : 1),
-                        userId: sub.user_id || sub.userId || userId,
+                        userId: ensureStringId(sub.user_id || sub.userId || userId),
                         nextBillingDate: nextBillingDate,
                         // Store additional fields from API
                         color: sub.color,
@@ -255,7 +263,7 @@ export const addSubscription = createAsyncThunk(
                     : subscription.endDate,
                 status: subscription.status,
                 category_id: subscription.categoryId,
-                user_id: subscription.userId,
+                user_id: ensureStringId(subscription.userId),
                 next_billing_date: nextBillingDate instanceof Date 
                     ? nextBillingDate.toISOString() 
                     : nextBillingDate,
@@ -275,9 +283,9 @@ export const addSubscription = createAsyncThunk(
                 // Handle different response formats
                 let newId: string;
                 if (response.data && response.data.subscription && response.data.subscription.id) {
-                    newId = String(response.data.subscription.id);
+                    newId = ensureStringId(response.data.subscription.id);
                 } else if (response.data && response.data.id) {
-                    newId = String(response.data.id);
+                    newId = ensureStringId(response.data.id);
                 } else {
                     // Fallback to a timestamp if we don't get an ID back
                     newId = Date.now().toString();
@@ -286,7 +294,8 @@ export const addSubscription = createAsyncThunk(
                 const newSubscription = {
                     ...subscription,
                     id: newId,
-                    nextBillingDate
+                    nextBillingDate,
+                    userId: ensureStringId(subscription.userId)
                 };
                 
                 console.log('Created subscription object:', newSubscription);
@@ -305,7 +314,8 @@ export const addSubscription = createAsyncThunk(
                     const tempSubscription = { 
                         ...subscription, 
                         id: tempId,
-                        nextBillingDate
+                        nextBillingDate,
+                        userId: ensureStringId(subscription.userId)
                     };
                     
                     await dbService.addOrUpdateSubscription(tempSubscription);
@@ -331,7 +341,8 @@ export const addSubscription = createAsyncThunk(
                 const tempSubscription = { 
                     ...subscription, 
                     id: tempId,
-                    nextBillingDate
+                    nextBillingDate,
+                    userId: ensureStringId(subscription.userId)
                 };
                 
                 console.log('Created offline subscription:', tempSubscription);
@@ -367,7 +378,7 @@ export const updateSubscription = createAsyncThunk(
                     : subscription.endDate,
                 status: subscription.status,
                 category_id: subscription.categoryId,
-                user_id: subscription.userId,
+                user_id: ensureStringId(subscription.userId),
                 next_billing_date: nextBillingDate instanceof Date 
                     ? nextBillingDate.toISOString() 
                     : nextBillingDate,
@@ -383,7 +394,14 @@ export const updateSubscription = createAsyncThunk(
                     }
                 );
                 
-                await dbService.updateSubscription(subscription);
+                // Ensure ID is string in the updated subscription
+                const updatedSubscription = {
+                    ...subscription,
+                    id: ensureStringId(subscription.id),
+                    userId: ensureStringId(subscription.userId)
+                };
+                
+                await dbService.updateSubscription(updatedSubscription);
                 return response.data;
             } catch (apiError: any) {
                 console.error('API error when updating subscription:', apiError);
@@ -395,8 +413,13 @@ export const updateSubscription = createAsyncThunk(
                     !navigator.onLine) {
                     
                     console.log('Network error detected, updating subscription offline only');
-                    await dbService.updateSubscription(subscription);
-                    return subscription;
+                    const updatedSubscription = {
+                        ...subscription,
+                        id: ensureStringId(subscription.id),
+                        userId: ensureStringId(subscription.userId)
+                    };
+                    await dbService.updateSubscription(updatedSubscription);
+                    return updatedSubscription;
                 }
                 
                 throw apiError;
@@ -404,8 +427,13 @@ export const updateSubscription = createAsyncThunk(
         } catch (error) {
             // If offline, update in IndexedDB only
             if (!navigator.onLine) {
-                await dbService.updateSubscription(subscription);
-                return subscription;
+                const updatedSubscription = {
+                    ...subscription,
+                    id: ensureStringId(subscription.id),
+                    userId: ensureStringId(subscription.userId)
+                };
+                await dbService.updateSubscription(updatedSubscription);
+                return updatedSubscription;
             }
             throw error;
         }
@@ -414,19 +442,22 @@ export const updateSubscription = createAsyncThunk(
 
 export const deleteSubscription = createAsyncThunk(
     'subscriptions/deleteSubscription',
-    async (id: string) => {
+    async (id: string | number) => {
+        // Ensure ID is string 
+        const stringId = ensureStringId(id);
+        
         try {
-            console.log(`Attempting to delete subscription with ID: ${id}`);
+            console.log(`Attempting to delete subscription with ID: ${stringId}`);
             
             try {
-                await apiClient.delete(`${API_BASE_URL}/subscriptions/${id}`, {
+                await apiClient.delete(`${API_BASE_URL}/subscriptions/${stringId}`, {
                     headers: getAuthHeader()
                 });
                 
                 // Only delete from IndexedDB if the API call was successful
-                await dbService.deleteSubscription(id);
-                console.log(`Successfully deleted subscription: ${id}`);
-                return id;
+                await dbService.deleteSubscription(stringId);
+                console.log(`Successfully deleted subscription: ${stringId}`);
+                return stringId;
             } catch (apiError: any) {
                 console.error('API error when deleting subscription:', apiError);
                 
@@ -437,8 +468,8 @@ export const deleteSubscription = createAsyncThunk(
                     !navigator.onLine) {
                     
                     console.log('Network error detected, deleting subscription offline only');
-                    await dbService.deleteSubscription(id);
-                    return id;
+                    await dbService.deleteSubscription(stringId);
+                    return stringId;
                 }
                 
                 // If the subscription doesn't exist on the server but exists locally,
@@ -447,8 +478,8 @@ export const deleteSubscription = createAsyncThunk(
                     (apiError.response.status === 404 || apiError.response.status === 400)) {
                     console.log('Subscription not found on server or bad request, deleting from local DB anyway');
                     try {
-                        await dbService.deleteSubscription(id);
-                        return id;
+                        await dbService.deleteSubscription(stringId);
+                        return stringId;
                     } catch (dbError) {
                         console.error('Failed to delete from IndexedDB:', dbError);
                         throw apiError; // Rethrow the original error
@@ -463,8 +494,8 @@ export const deleteSubscription = createAsyncThunk(
             // If offline, delete from IndexedDB only
             if (!navigator.onLine) {
                 console.log('Offline mode: Deleting from IndexedDB only');
-                await dbService.deleteSubscription(id);
-                return id;
+                await dbService.deleteSubscription(stringId);
+                return stringId;
             }
             
             throw error;
@@ -493,13 +524,13 @@ export const subscriptionSlice = createSlice({
                 state.items.push(action.payload);
             })
             .addCase(updateSubscription.fulfilled, (state, action) => {
-                const index = state.items.findIndex(sub => sub.id === action.payload.id);
+                const index = state.items.findIndex(sub => String(sub.id) === String(action.payload.id));
                 if (index !== -1) {
                     state.items[index] = action.payload;
                 }
             })
             .addCase(deleteSubscription.fulfilled, (state, action) => {
-                state.items = state.items.filter(sub => sub.id !== action.payload);
+                state.items = state.items.filter(sub => String(sub.id) !== String(action.payload));
             });
     },
 });

@@ -12,6 +12,23 @@ console.log('Sync service using API URL:', API_BASE_URL);
 
 type EntityType = Subscription;
 
+// Define interface for API subscription data format
+interface APISubscriptionData {
+  id?: string;
+  name: string;
+  price: string;
+  billing_cycle: string;
+  user_id: string;
+  category?: string | number;
+  description?: string;
+  next_billing_date?: string;
+  color?: string;
+  logo?: string | null;
+  website?: string;
+  notes?: string;
+  [key: string]: any; // Allow for additional properties
+}
+
 interface SyncOperation {
     type: 'CREATE' | 'UPDATE' | 'DELETE';
     entity: 'subscription' | 'payment';
@@ -84,13 +101,40 @@ class SyncService {
         this.saveSyncState();
     }
 
+    // Convert Subscription object to API format
+    private formatSubscriptionForApi(subscription: Subscription): APISubscriptionData {
+        return {
+            id: subscription.id,
+            name: subscription.name,
+            price: subscription.cost.toString(),
+            billing_cycle: subscription.billingCycle.toLowerCase(),
+            user_id: String(subscription.userId),
+            category: subscription.categoryId,
+            description: subscription.description || '',
+            next_billing_date: subscription.nextBillingDate instanceof Date 
+                ? subscription.nextBillingDate.toISOString() 
+                : subscription.nextBillingDate,
+            color: subscription.color,
+            logo: subscription.logo,
+            website: subscription.website,
+            notes: subscription.notes
+        };
+    }
+
     private async syncCreate(operation: SyncOperation) {
         try {
             console.log(`Syncing ${operation.entity} creation to ${API_BASE_URL}/${operation.entity}s`);
             
+            // Format data for API if needed
+            let apiData: any = operation.data;
+            if (operation.entity === 'subscription' && operation.data) {
+                apiData = this.formatSubscriptionForApi(operation.data as Subscription);
+                console.log('Formatted subscription data for API:', apiData);
+            }
+            
             const response = await axios.post(
                 `${API_BASE_URL}/${operation.entity}s`,
-                operation.data,
+                apiData,
                 {
                     headers: this.getAuthHeader()
                 }
@@ -137,35 +181,84 @@ class SyncService {
 
     private async syncUpdate(operation: SyncOperation) {
         try {
-            await axios.put(
+            // Format data for API if needed
+            let apiData: any = operation.data;
+            if (operation.entity === 'subscription' && operation.data) {
+                apiData = this.formatSubscriptionForApi(operation.data as Subscription);
+                console.log('Formatted subscription data for API update:', apiData);
+            }
+            
+            const response = await axios.put(
                 `${API_BASE_URL}/${operation.entity}s/${operation.id}`,
-                operation.data,
+                apiData,
                 {
                     headers: this.getAuthHeader()
                 }
             );
+            
+            console.log('Update sync response:', response.data);
+            
+            // If local subscription exists, update it with any server-side changes
+            if (operation.entity === 'subscription' && operation.data && operation.id) {
+                const subscription = operation.data as Subscription;
+                // Fetch the latest from IndexedDB to ensure we have correct data
+                const existingSubscription = await dbService.getSubscription(String(operation.id));
+                if (existingSubscription) {
+                    const updatedSubscription = {
+                        ...existingSubscription,
+                        ...subscription,
+                        id: String(operation.id) // Ensure ID is consistent
+                    };
+                    await dbService.updateSubscription(updatedSubscription);
+                }
+            }
         } catch (error) {
+            console.error('Error during update sync:', error);
             // If offline, keep in pending operations
             if (!navigator.onLine || this.isNetworkError(error)) {
+                console.log('Network error/offline during update - will retry later');
                 this.saveSyncState();
             }
+            
             throw error;
         }
     }
 
     private async syncDelete(operation: SyncOperation) {
         try {
-            await axios.delete(
+            console.log(`Syncing delete for ${operation.entity} with ID ${operation.id}`);
+            
+            const response = await axios.delete(
                 `${API_BASE_URL}/${operation.entity}s/${operation.id}`,
                 {
                     headers: this.getAuthHeader()
                 }
             );
-        } catch (error) {
+            
+            console.log('Delete sync response:', response.data);
+            
+            // Ensure it's deleted from local DB
+            if (operation.entity === 'subscription' && operation.id) {
+                await dbService.deleteSubscription(String(operation.id));
+            }
+        } catch (error: any) {
+            console.error('Error during delete sync:', error);
+            
+            // For 404 errors, we consider it already deleted
+            if (error.response && error.response.status === 404) {
+                console.log('Resource not found on server (404) - considering it already deleted');
+                if (operation.entity === 'subscription' && operation.id) {
+                    await dbService.deleteSubscription(String(operation.id));
+                }
+                return; // Don't rethrow for 404s
+            }
+            
             // If offline, keep in pending operations
             if (!navigator.onLine || this.isNetworkError(error)) {
+                console.log('Network error/offline during delete - will retry later');
                 this.saveSyncState();
             }
+            
             throw error;
         }
     }

@@ -1,6 +1,13 @@
 import { Handler, HandlerEvent, HandlerContext } from "@netlify/functions";
 import jwt from 'jsonwebtoken';
 
+// Add declaration for Node.js process in Netlify Functions environment
+declare const process: {
+  env: {
+    [key: string]: string | undefined;
+  };
+};
+
 // Simulated database - in a real app this would be a database connection
 // This is just for the demo purposes to simulate api functionality
 const subscriptions = new Map();
@@ -41,7 +48,7 @@ const verifyToken = (token: string) => {
 // Get authorization token from event
 const getToken = (event: HandlerEvent) => {
   const authHeader = event.headers.authorization || '';
-  return authHeader.startsWith('Bearer ') ? authHeader.slice(7) : authHeader;
+  return authHeader.startsWith('Bearer ') ? authHeader : authHeader;
 };
 
 // Helper to check if a user is authorized for a subscription
@@ -49,16 +56,27 @@ const isAuthorized = (userId: string, subscriptionUserId: string, role: string) 
   return userId === subscriptionUserId || role === 'admin';
 };
 
+// Helper to generate UUID-like string for IDs
+const generateId = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0, v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+};
+
 const handler: Handler = async (event: HandlerEvent, context: HandlerContext) => {
-  // CORS headers
+  // CORS headers - be sure to include all needed headers for browser preflight
   const headers = {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS'
+    'Access-Control-Allow-Origin': '*', // Or specify your domain
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Max-Age': '86400', // 24 hours cache for preflight requests
+    'Content-Type': 'application/json'
   };
 
   // Handle preflight requests
   if (event.httpMethod === 'OPTIONS') {
+    console.log('Handling OPTIONS preflight request');
     return {
       statusCode: 204,
       headers,
@@ -70,16 +88,19 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
   const token = getToken(event);
   const decoded: any = verifyToken(token);
   
+  // For non-preflight requests, require authentication except for public endpoints
   if (!decoded && event.httpMethod !== 'OPTIONS') {
+    console.log('Authentication failed - invalid or missing token');
     return {
       statusCode: 401,
       headers,
-      body: JSON.stringify({ message: 'Unauthorized' })
+      body: JSON.stringify({ message: 'Unauthorized - valid authentication required' })
     };
   }
   
   const userId = decoded?.id;
   const userRole = decoded?.role || 'user';
+  console.log(`Request from user ID: ${userId} with role: ${userRole}`);
 
   // Parse path to extract ID if present
   const path = event.path.replace('/.netlify/functions/subscriptions', '');
@@ -87,6 +108,8 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
   const isUserSubscriptions = segments[0] === 'user' && segments.length === 2;
   const subscriptionId = !isUserSubscriptions && segments.length > 0 ? segments[0] : null;
   const requestUserId = isUserSubscriptions ? segments[1] : null;
+
+  console.log(`Parsed path: isUserSubscriptions=${isUserSubscriptions}, subscriptionId=${subscriptionId}, requestUserId=${requestUserId}`);
 
   try {
     // GET /subscriptions/user/:userId - Get user's subscriptions
@@ -181,27 +204,46 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
     if (event.httpMethod === 'POST' && !subscriptionId) {
       console.log('Creating a new subscription');
       
-      const data = JSON.parse(event.body || '{}');
-      
-      // Validate required fields
-      if (!data.name || !data.price || !data.billing_cycle) {
+      // Parse request body
+      let data;
+      try {
+        data = JSON.parse(event.body || '{}');
+        console.log('Parsed request data:', data);
+      } catch (e) {
+        console.error('Error parsing request body:', e);
         return {
           statusCode: 400,
           headers,
-          body: JSON.stringify({ message: 'Missing required fields' })
+          body: JSON.stringify({ message: 'Invalid request body - JSON parsing failed' })
         };
       }
       
+      // Validate required fields
+      if (!data.name) {
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Missing required field: name' })
+        };
+      }
+      
+      // Handle cost/price field names
+      const price = data.price || (data.cost ? String(data.cost) : '0');
+      
+      // Handle billing cycle
+      const billing_cycle = (data.billing_cycle || data.billingCycle || 'monthly').toLowerCase();
+      
       // Create new subscription with UUID
+      const newId = generateId();
       const newSubscription = {
-        id: Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15),
-        user_id: data.user_id || userId,
+        id: newId,
+        user_id: data.user_id || data.userId || userId,
         name: data.name,
-        price: data.price,
-        billing_cycle: data.billing_cycle,
-        category: data.category || "Other",
+        price: price,
+        billing_cycle: billing_cycle,
+        category: data.category || data.category_id || "Other",
         description: data.description || "",
-        next_billing_date: data.next_billing_date || new Date().toISOString(),
+        next_billing_date: data.next_billing_date || data.nextBillingDate || new Date().toISOString(),
         color: data.color || "#000000",
         logo: data.logo || null,
         website: data.website || "",
@@ -210,6 +252,8 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         updated_at: new Date().toISOString(),
         version: null
       };
+      
+      console.log('Created new subscription:', newSubscription);
       
       return {
         statusCode: 201,
@@ -222,12 +266,23 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
     if (event.httpMethod === 'PUT' && subscriptionId) {
       console.log(`Updating subscription with ID ${subscriptionId}`);
       
-      const data = JSON.parse(event.body || '{}');
+      let data;
+      try {
+        data = JSON.parse(event.body || '{}');
+        console.log('Parsed update data:', data);
+      } catch (e) {
+        console.error('Error parsing request body for update:', e);
+        return {
+          statusCode: 400,
+          headers,
+          body: JSON.stringify({ message: 'Invalid request body - JSON parsing failed' })
+        };
+      }
       
       // Mock subscription for checking authorization
       const mockSubscription = {
         id: subscriptionId,
-        user_id: userId // Assuming the subscription belongs to the requesting user
+        user_id: data.user_id || data.userId || userId // Assuming the subscription belongs to the requesting user
       };
       
       // Check if user is authorized
@@ -239,11 +294,15 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
         };
       }
       
+      // Handle price/cost conversion
+      const price = data.price || (data.cost ? String(data.cost) : undefined);
+      
       // Update subscription
       const updatedSubscription = {
         ...mockSubscription,
         ...data,
         id: subscriptionId, // Ensure ID remains the same
+        price: price,
         updated_at: new Date().toISOString()
       };
       
@@ -283,10 +342,11 @@ const handler: Handler = async (event: HandlerEvent, context: HandlerContext) =>
     }
     
     // If we reach here, the requested endpoint wasn't found
+    console.log(`Not found: ${event.httpMethod} ${event.path}`);
     return {
       statusCode: 404,
       headers,
-      body: JSON.stringify({ message: 'Not found' })
+      body: JSON.stringify({ message: 'Not found - endpoint does not exist' })
     };
     
   } catch (error) {

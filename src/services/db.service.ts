@@ -93,9 +93,15 @@ class DBService {
 
     async getUserSubscriptions(userId: number | string) {
         const db = await this.dbPromise;
-        // Ensure userId is consistent with what's stored in the database
-        const dbUserId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
-        return db.getAllFromIndex('subscriptions', 'by-user', dbUserId);
+        // Don't try to convert string IDs to numbers since they could be UUIDs
+        // Instead convert everything to strings for consistent comparison
+        const userIdString = String(userId);
+        
+        // Get all subscriptions
+        const allSubscriptions = await db.getAll('subscriptions');
+        
+        // Filter subscriptions by userId manually since the index might have inconsistent types
+        return allSubscriptions.filter(sub => String(sub.userId) === userIdString);
     }
 
     async addOrUpdateSubscription(subscription: Subscription) {
