@@ -10,7 +10,7 @@ import {
 import { Subscription } from '../types/models';
 import { syncService } from '../services/sync.service';
 
-export const useSubscriptions = (userId: number) => {
+export const useSubscriptions = (userId: string | number) => {
     const dispatch = useDispatch<AppDispatch>();
     const { items, status, error } = useSelector((state: RootState) => state.subscriptions);
 

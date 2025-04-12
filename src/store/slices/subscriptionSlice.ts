@@ -63,7 +63,7 @@ const initialState: SubscriptionState = {
 
 export const fetchUserSubscriptions = createAsyncThunk(
     'subscriptions/fetchUserSubscriptions',
-    async (userId: number) => {
+    async (userId: string | number) => {
         try {
             // Check if we have a token first
             const token = localStorage.getItem('auth_token');
@@ -73,11 +73,14 @@ export const fetchUserSubscriptions = createAsyncThunk(
                 return offlineSubscriptions;
             }
             
-            console.log(`Fetching subscriptions for user ${userId} from ${API_BASE_URL}/subscriptions/user/${userId}`);
+            // Convert userId to string for URL path if it's not already
+            const userIdParam = String(userId);
+            
+            console.log(`Fetching subscriptions for user ${userIdParam} from ${API_BASE_URL}/subscriptions/user/${userIdParam}`);
             console.log('Auth headers:', getAuthHeader());
             
             try {
-                const response = await apiClient.get(`${API_BASE_URL}/subscriptions/user/${userId}`, {
+                const response = await apiClient.get(`${API_BASE_URL}/subscriptions/user/${userIdParam}`, {
                     headers: getAuthHeader()
                 });
                 

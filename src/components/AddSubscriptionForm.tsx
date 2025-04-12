@@ -56,7 +56,7 @@ export const AddSubscriptionForm: React.FC<AddSubscriptionFormProps> = ({ onClos
     const styles = useStyles();
     const { user } = useAuthContext();
     const { isOnline } = useNetworkStatus();
-    const { add } = useSubscriptions(user ? parseInt(user.id, 10) : 0);
+    const { add } = useSubscriptions(user ? user.id : '0');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
 
@@ -86,7 +86,7 @@ export const AddSubscriptionForm: React.FC<AddSubscriptionFormProps> = ({ onClos
                 billingCycle: formData.billingCycle,
                 startDate: formData.startDate,
                 categoryId: formData.categoryId,
-                userId: parseInt(user.id, 10),
+                userId: user.id,
                 status: 'ACTIVE',
                 nextBillingDate: formData.startDate,
             };
