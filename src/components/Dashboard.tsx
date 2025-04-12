@@ -27,7 +27,7 @@ export const Dashboard: React.FC = () => {
   const { subscriptions, isLoading } = useDashboardData();
   const [selectedTab, setSelectedTab] = React.useState('analytics');
 
-  const handleTabSelect = (event: SelectTabEvent, data: SelectTabData) => {
+  const handleTabSelect = (_: SelectTabEvent, data: SelectTabData) => {
     setSelectedTab(data.value as string);
   };
 
