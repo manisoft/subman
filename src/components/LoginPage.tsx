@@ -62,9 +62,13 @@ export const LoginPage: React.FC = () => {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        console.log('Login form submitted for:', email);
         try {
             await login(email, password);
-        } catch {
+            console.log('Login function completed');
+            // Don't do anything else after login - navigation is handled in useAuth
+        } catch (error) {
+            console.error('Login component caught error:', error);
             // Error is handled by the auth context
         }
     };

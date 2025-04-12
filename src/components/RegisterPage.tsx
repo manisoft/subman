@@ -76,9 +76,13 @@ export const RegisterPage: React.FC = () => {
             return;
         }
 
+        console.log('Registration form submitted for:', email);
         try {
             await register(email, password, name);
-        } catch {
+            console.log('Registration function completed');
+            // Don't do anything else after registration - navigation is handled in useAuth
+        } catch (error) {
+            console.error('Registration component caught error:', error);
             // Error is handled by the auth context
         }
     };
