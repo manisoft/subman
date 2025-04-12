@@ -10,14 +10,30 @@ interface BillingInfo {
 
 export const useSubscriptionBilling = (subscription: Subscription): BillingInfo => {
     return useMemo(() => {
+        // Ensure nextBillingDate is valid, default to today if not
+        let nextBilling: Date;
+        try {
+            nextBilling = subscription.nextBillingDate ? new Date(subscription.nextBillingDate) : new Date();
+            // Check if the date is valid
+            if (isNaN(nextBilling.getTime())) {
+                nextBilling = new Date();
+            }
+        } catch (error) {
+            nextBilling = new Date();
+        }
+        
         const today = new Date();
-        const nextBilling = new Date(subscription.nextBillingDate);
         const daysUntil = Math.ceil((nextBilling.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
 
+        // Ensure billingCycle is valid
+        const billingCycle = typeof subscription.billingCycle === 'string' 
+            ? subscription.billingCycle
+            : 'MONTHLY';
+            
         let cycleLength: number;
         let billingsPerYear: number;
 
-        switch (subscription.billingCycle) {
+        switch (billingCycle) {
             case 'MONTHLY':
                 cycleLength = 30;
                 billingsPerYear = 12;
@@ -38,7 +54,7 @@ export const useSubscriptionBilling = (subscription: Subscription): BillingInfo 
         return {
             nextBillingDate: nextBilling,
             daysUntilNextBilling: daysUntil,
-            totalYearlyCost: subscription.cost * billingsPerYear,
+            totalYearlyCost: (subscription.cost || 0) * billingsPerYear,
             cycleLength,
         };
     }, [subscription]);

@@ -93,28 +93,33 @@ export const SubscriptionList: React.FC = () => {
     };
 
     const BillingCell: React.FC<{ subscription: Subscription }> = ({ subscription }) => {
-        const billing = useSubscriptionBilling(subscription);
-        const isUpcoming = billing.daysUntilNextBilling <= 7;
+        try {
+            const billing = useSubscriptionBilling(subscription);
+            const isUpcoming = billing.daysUntilNextBilling <= 7;
 
-        return (
-            <Tooltip
-                content={
-                    <div className={styles.tooltipContent}>
-                        <p>Next billing in: {billing.daysUntilNextBilling} days</p>
-                        <p>Billing cycle: {billing.cycleLength} days</p>
-                        <p>Yearly cost: {formatCurrency(billing.totalYearlyCost)}</p>
+            return (
+                <Tooltip
+                    content={
+                        <div className={styles.tooltipContent}>
+                            <p>Next billing in: {billing.daysUntilNextBilling} days</p>
+                            <p>Billing cycle: {billing.cycleLength} days</p>
+                            <p>Yearly cost: {formatCurrency(billing.totalYearlyCost)}</p>
+                        </div>
+                    }
+                    relationship="label"
+                >
+                    <div className={styles.billingInfo}>
+                        <span className={isUpcoming ? styles.upcomingBilling : undefined}>
+                            {new Date(billing.nextBillingDate).toLocaleDateString()}
+                            {isUpcoming && ' (Soon)'}
+                        </span>
                     </div>
-                }
-                relationship="label"
-            >
-                <div className={styles.billingInfo}>
-                    <span className={isUpcoming ? styles.upcomingBilling : undefined}>
-                        {new Date(billing.nextBillingDate).toLocaleDateString()}
-                        {isUpcoming && ' (Soon)'}
-                    </span>
-                </div>
-            </Tooltip>
-        );
+                </Tooltip>
+            );
+        } catch (error) {
+            console.error('Error rendering billing cell:', error);
+            return <div>Billing data unavailable</div>;
+        }
     };
 
     if (isLoading) {
@@ -171,15 +176,19 @@ export const SubscriptionList: React.FC = () => {
                 <TableBody>
                     {subscriptions.map((subscription: Subscription) => (
                         <TableRow key={subscription.id ?? 'temp'}>
-                            <TableCell>{subscription.name}</TableCell>
-                            <TableCell>{formatCurrency(subscription.cost)}</TableCell>
-                            <TableCell>{subscription.billingCycle.toLowerCase()}</TableCell>
+                            <TableCell>{subscription.name || 'Unnamed'}</TableCell>
+                            <TableCell>{formatCurrency(subscription.cost || 0)}</TableCell>
+                            <TableCell>
+                                {subscription.billingCycle && typeof subscription.billingCycle === 'string' 
+                                    ? subscription.billingCycle.toLowerCase() 
+                                    : 'unknown'}
+                            </TableCell>
                             <TableCell>
                                 <Badge
                                     appearance={subscription.status === 'ACTIVE' ? 'filled' : 'ghost'}
                                     color={subscription.status === 'ACTIVE' ? 'success' : 'danger'}
                                 >
-                                    {subscription.status}
+                                    {subscription.status || 'UNKNOWN'}
                                 </Badge>
                             </TableCell>
                             <TableCell>

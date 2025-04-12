@@ -22,7 +22,26 @@ export const fetchUserSubscriptions = createAsyncThunk(
     async (userId: number) => {
         try {
             const response = await axios.get(`${API_BASE_URL}/subscriptions/user/${userId}`);
-            const subscriptions = response.data;
+            let subscriptions = response.data;
+            
+            // Normalize and validate the data from API
+            subscriptions = Array.isArray(subscriptions) ? subscriptions : [];
+            
+            // Map API response to match local model structure
+            subscriptions = subscriptions.map((sub: any) => ({
+                id: sub.id || Date.now(),
+                name: sub.name || 'Untitled Subscription',
+                description: sub.description || '',
+                cost: typeof sub.price === 'number' ? sub.price : (sub.cost || 0),
+                billingCycle: sub.billing_cycle || sub.billingCycle || 'MONTHLY',
+                startDate: sub.start_date || sub.startDate || new Date(),
+                endDate: sub.end_date || sub.endDate,
+                status: sub.status || 'ACTIVE',
+                categoryId: sub.category_id || sub.categoryId || 1,
+                userId: sub.user_id || sub.userId || userId,
+                nextBillingDate: sub.next_billing_date || sub.nextBillingDate || new Date()
+            }));
+            
             // Store in IndexedDB for offline access
             for (const sub of subscriptions) {
                 await dbService.addSubscription(sub);
