@@ -2,9 +2,16 @@ import axios from 'axios';
 import { dbService } from './db.service';
 import { User } from '../types/models';
 
-// Use the configured API URL with a fallback
-// This will be /api when deployed to Netlify (due to the redirects in netlify.toml)
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+// Get the current hostname
+const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+
+// For production (Netlify), use the relative path /api which gets redirected to /.netlify/functions
+// For development, use localhost
+const API_BASE_URL = isLocalhost 
+  ? 'http://localhost:3000/api' 
+  : '/api';
+
+console.log('Using API URL:', API_BASE_URL);
 
 interface AuthResponse {
     user: User;
