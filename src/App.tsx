@@ -1,9 +1,9 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { FluentProvider, webLightTheme, makeStyles, Button } from '@fluentui/react-components';
 import { ServiceWorkerRegistration } from './components/ServiceWorkerRegistration';
-import { SubscriptionList } from './components/SubscriptionList';
 import { LoginPage } from './components/LoginPage';
 import { RegisterPage } from './components/RegisterPage';
+import { Dashboard } from './components/Dashboard';
 import { useNetworkStatus } from './hooks/useNetworkStatus';
 import { AuthProvider } from './context/AuthContext';
 import { useAuthContext } from './context/AuthContext';
@@ -25,6 +25,15 @@ const useStyles = makeStyles({
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+  },
+  logo: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: '10px',
+  },
+  logoImg: {
+    width: '32px',
+    height: '32px',
   },
   main: {
     flex: 1,
@@ -53,7 +62,10 @@ function AppContent() {
       {user && (
         <header className={styles.header}>
           <div className={styles.headerContent}>
-            <h1>SubMan</h1>
+            <div className={styles.logo}>
+              <img src="/logo.svg" alt="SubMan Logo" className={styles.logoImg} />
+              <h1>SubMan</h1>
+            </div>
             <Button appearance="subtle" onClick={logout}>Logout</Button>
           </div>
           {!isOnline && (
@@ -77,7 +89,7 @@ function AppContent() {
           } />
           <Route path="/" element={
             <ProtectedRoute>
-              <SubscriptionList />
+              <Dashboard />
             </ProtectedRoute>
           } />
           <Route path="*" element={<Navigate to="/" replace />} />
