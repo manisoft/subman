@@ -1,15 +1,23 @@
 export interface Subscription {
-    id?: string | number;
+    id: string;
     name: string;
-    description?: string;
+    description: string;
     cost: number;
     billingCycle: 'MONTHLY' | 'YEARLY' | 'QUARTERLY';
-    startDate: Date;
-    endDate?: Date;
-    status: 'ACTIVE' | 'CANCELLED' | 'EXPIRED';
-    categoryId: number;
-    userId: number;
-    nextBillingDate: Date;
+    startDate: string | Date;
+    endDate?: string | Date;
+    status: 'ACTIVE' | 'CANCELLED' | 'INACTIVE';
+    categoryId: number | string;
+    userId: number | string;
+    nextBillingDate: string | Date;
+    // Additional fields from API
+    color?: string;
+    logo?: string | null;
+    website?: string;
+    notes?: string;
+    created_at?: string;
+    updated_at?: string;
+    version?: string | null;
 }
 
 export interface Category {
@@ -31,8 +39,8 @@ export interface User {
 }
 
 export interface PaymentHistory {
-    id?: string | number;
-    subscriptionId: string | number;
+    id?: string;
+    subscriptionId: string;
     amount: number;
     paymentDate: Date;
     status: 'SUCCESSFUL' | 'FAILED' | 'PENDING';

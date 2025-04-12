@@ -89,7 +89,7 @@ export const SubscriptionList: React.FC = () => {
     const { subscriptions, isLoading, error, remove } = useSubscriptions(userId);
     const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
 
-    const handleDelete = async (id: string | number) => {
+    const handleDelete = async (id: string) => {
         try {
             const success = await remove(id);
             if (success) {

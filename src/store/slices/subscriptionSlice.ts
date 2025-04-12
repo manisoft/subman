@@ -70,20 +70,28 @@ export const fetchUserSubscriptions = createAsyncThunk(
                     sub.billing_cycle || sub.billingCycle || 'MONTHLY'
                 );
                 
-                // Create formatted subscription with defaults for missing fields
+                // Convert snake_case to camelCase and ensure all required fields are present
                 const formattedSub = {
-                    id: sub.id || Date.now().toString(),
+                    id: String(sub.id || Date.now()),
                     name: sub.name || 'Untitled Subscription',
                     description: sub.description || '',
                     cost: sub.price ? parseFloat(sub.price) : (sub.cost || 0),
-                    billingCycle: sub.billing_cycle || sub.billingCycle || 'MONTHLY',
-                    startDate: sub.start_date || sub.startDate || new Date(),
+                    billingCycle: mapBillingCycle(sub.billing_cycle || sub.billingCycle || 'monthly'),
+                    startDate: sub.created_at || sub.start_date || sub.startDate || new Date(),
                     endDate: sub.end_date || sub.endDate,
                     status: sub.status || 'ACTIVE',
-                    categoryId: sub.category_id || sub.categoryId || 1,
+                    categoryId: sub.category_id || sub.categoryId || (sub.category ? sub.category : 1),
                     userId: sub.user_id || sub.userId || userId,
-                    nextBillingDate: nextBillingDate
-                };
+                    nextBillingDate: nextBillingDate,
+                    // Store additional fields from API
+                    color: sub.color,
+                    logo: sub.logo,
+                    website: sub.website,
+                    notes: sub.notes,
+                    created_at: sub.created_at,
+                    updated_at: sub.updated_at,
+                    version: sub.version
+                } as Subscription;
                 
                 console.log('Formatted subscription:', formattedSub);
                 return formattedSub;
@@ -153,11 +161,11 @@ export const addSubscription = createAsyncThunk(
             console.log('Add subscription response:', response.data);
             
             // Handle different response formats
-            let newId: string | number;
+            let newId: string;
             if (response.data && response.data.subscription && response.data.subscription.id) {
-                newId = response.data.subscription.id;
+                newId = String(response.data.subscription.id);
             } else if (response.data && response.data.id) {
-                newId = response.data.id;
+                newId = String(response.data.id);
             } else {
                 // Fallback to a timestamp if we don't get an ID back
                 newId = Date.now().toString();
@@ -254,7 +262,7 @@ export const updateSubscription = createAsyncThunk(
 
 export const deleteSubscription = createAsyncThunk(
     'subscriptions/deleteSubscription',
-    async (id: string | number) => {
+    async (id: string) => {
         try {
             console.log(`Attempting to delete subscription with ID: ${id}`);
             
@@ -327,3 +335,28 @@ export const subscriptionSlice = createSlice({
 });
 
 export const subscriptionReducer = subscriptionSlice.reducer;
+
+// Add this helper function above the thunk
+function mapBillingCycle(cycle: string): 'MONTHLY' | 'YEARLY' | 'QUARTERLY' {
+    const normalizedCycle = cycle.toUpperCase();
+    if (normalizedCycle === 'MONTHLY' || normalizedCycle === 'YEARLY' || normalizedCycle === 'QUARTERLY') {
+        return normalizedCycle as 'MONTHLY' | 'YEARLY' | 'QUARTERLY';
+    }
+    
+    // Map other formats to our expected enum values
+    switch(normalizedCycle) {
+        case 'MONTH':
+        case 'MONTHLY':
+            return 'MONTHLY';
+        case 'YEAR':
+        case 'YEARLY':
+        case 'ANNUAL':
+        case 'ANNUALLY':
+            return 'YEARLY';
+        case 'QUARTER':
+        case 'QUARTERLY':
+            return 'QUARTERLY';
+        default:
+            return 'MONTHLY';
+    }
+}

@@ -62,10 +62,14 @@ class DBService {
     // Subscription methods
     async addSubscription(subscription: Omit<Subscription, 'id'>) {
         const db = await this.dbPromise;
-        return db.add('subscriptions', subscription);
+        const subWithId = {
+            ...subscription,
+            id: Date.now().toString() // Add a default ID if none is provided
+        };
+        return db.add('subscriptions', subWithId);
     }
 
-    async getSubscription(id: string | number) {
+    async getSubscription(id: string) {
         const db = await this.dbPromise;
         return db.get('subscriptions', id);
     }
@@ -75,24 +79,23 @@ class DBService {
         return db.put('subscriptions', subscription);
     }
 
-    async deleteSubscription(id: string | number) {
+    async deleteSubscription(id: string) {
         const db = await this.dbPromise;
-        // If the ID is a string but contains only digits, convert it to a number
-        const dbId = typeof id === 'string' && /^\d+$/.test(id) ? parseInt(id, 10) : id;
-        
-        console.log(`Deleting subscription from IndexedDB with ID (${typeof dbId}):`, dbId);
+        console.log(`Deleting subscription from IndexedDB with ID:`, id);
         
         try {
-            return await db.delete('subscriptions', dbId);
+            return await db.delete('subscriptions', id);
         } catch (error) {
-            console.error(`Failed to delete subscription with ID ${dbId}:`, error);
+            console.error(`Failed to delete subscription with ID ${id}:`, error);
             throw error;
         }
     }
 
-    async getUserSubscriptions(userId: number) {
+    async getUserSubscriptions(userId: number | string) {
         const db = await this.dbPromise;
-        return db.getAllFromIndex('subscriptions', 'by-user', userId);
+        // Ensure userId is consistent with what's stored in the database
+        const dbUserId = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+        return db.getAllFromIndex('subscriptions', 'by-user', dbUserId);
     }
 
     async addOrUpdateSubscription(subscription: Subscription) {
@@ -166,7 +169,7 @@ class DBService {
         return db.add('paymentHistory', payment);
     }
 
-    async getSubscriptionPayments(subscriptionId: number) {
+    async getSubscriptionPayments(subscriptionId: string) {
         const db = await this.dbPromise;
         return db.getAllFromIndex('paymentHistory', 'by-subscription', subscriptionId);
     }
